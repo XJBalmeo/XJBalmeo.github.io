@@ -32,10 +32,26 @@ function drawMatrix() {
         drops[i]++;
     }
 }
-
 setInterval(drawMatrix, 33);
 
 window.addEventListener('resize', () => {
     canvas.width = canvas.parentElement.offsetWidth;
     canvas.height = canvas.parentElement.offsetHeight;
+});
+const observerOptions = {
+    root: null,
+    rootMargin: '0px', 
+    threshold: 0.15
+};
+const scrollObserver = new IntersectionObserver((entries, observer) => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) {
+            entry.target.classList.add('reveal-visible');
+        }
+    });
+}, observerOptions);
+
+document.addEventListener('DOMContentLoaded', () => {
+    const hiddenElements = document.querySelectorAll('.reveal-hidden');
+    hiddenElements.forEach((el) => scrollObserver.observe(el));
 });
