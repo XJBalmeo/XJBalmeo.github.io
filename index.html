@@ -6,6 +6,7 @@
     <title>Xeon Balmeo | Computer Science</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
+
     <!--Typewrite animation-->
     <style>
     .typewriter-container {
@@ -29,8 +30,10 @@
         from, to { border-color: transparent }
         50% { border-color: #22c55e; }
     }
-</style>
+
+    </style>
 </head>
+
 <body>
     <!--Navbar-->
     <nav class="w-full bg-black border-b border-green-800 p-4 md:px-10 flex justify-between items-center font-mono text-green-500 sticky top-0 z-50">
@@ -160,14 +163,32 @@
 
         </div>
     </section>
+    
     <!--Footer Section-->
-    <footer id="contact" class="bg-black py-10  border-t border-green-900">
-        <div class="flex justify-center gap-8">
-            <a href="https://github.com/XJBalmeo" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-github text-3xl text-green-600 hover:text-green-400 transition-colors"></i></a>
-            <a href="https://www.linkedin.com/in/xeon-jamir-balmeo-36134a321/" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-linkedin text-3xl text-green-600 hover:text-green-400 transition-colors"></i></a>
-            <a href="mailto:xjbalmeo24@gmail.com"><i class="fa-solid fa-envelope text-3xl text-green-600 hover:text-green-400 transition-colors"></i></a>
+<footer class="relative bg-black py-10 overflow-hidden border-t border-green-900">
+    
+    <canvas id="matrix-canvas" class="absolute inset-0 w-full h-full opacity-40"></canvas>
+
+    <div class="relative z-10 max-w-4xl mx-auto px-6 flex flex-col items-center gap-8">
+        
+        <div class="flex justify-center gap-12">
+            <a href="https://github.com/XJBalmeo" target="_blank" rel="noopener noreferrer" class="group bg-black/50 p-4 rounded-full border border-green-900/50 hover:border-green-500 transition-colors duration-300">
+                <i class="fa-brands fa-github text-3xl text-gray-500 group-hover:text-green-400 transition-colors duration-300"></i>
+            </a>
+            <a href="https://www.linkedin.com/in/xeon-jamir-balmeo-36134a321/" target="_blank" rel="noopener noreferrer" class="group bg-black/50 p-4 rounded-full border border-green-900/50 hover:border-green-500 transition-colors duration-300">
+                <i class="fa-brands fa-linkedin text-3xl text-gray-500 group-hover:text-green-400 transition-colors duration-300"></i>
+            </a>
+            <a href="mailto:xjbalmeo24@gmail.com" class="group bg-black/50 p-4 rounded-full border border-green-900/50 hover:border-green-500 transition-colors duration-300">
+                <i class="fa-solid fa-envelope text-3xl text-gray-500 group-hover:text-green-400 transition-colors duration-300"></i>
+            </a>
         </div>
-        <p class="text-center text-green-500 text-m mt-8 font-mono">©2026 Xeon Jamir Balmeo | All Rights Reserved</p>
-    </footer>
+        
+        <p class="text-center text-green-600 bg-black/70 px-4 py-1 rounded text-sm mt-4 font-mono">
+            > system_offline <br>
+            © 2026 Xeon Jamir Balmeo
+        </p>
+    </div>
+</footer>
+        <script src="script.js"></script>
 </body>
 </html>
