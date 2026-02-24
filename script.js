@@ -55,3 +55,50 @@ document.addEventListener('DOMContentLoaded', () => {
     const hiddenElements = document.querySelectorAll('.reveal-hidden');
     hiddenElements.forEach((el) => scrollObserver.observe(el));
 });
+
+// --- TERMINAL BOOT PRELOADER ---
+document.addEventListener('DOMContentLoaded', () => {
+    const preloader = document.getElementById('preloader');
+    const bootLog = document.getElementById('boot-log');
+    const loadingBar = document.getElementById('loading-bar');
+    const percentageText = document.getElementById('loading-percentage');
+
+    // The text sequence that will "type" out
+    const bootSequence = [
+        "kernel: initializing...",
+        "mounting virtual drives... [OK]",
+        "loading logic_gates.sys...",
+        "compiling java_swing_environment...",
+        "establishing secure connection...",
+        "USER IDENTIFIED: XEON_JAMIR_BALMEO",
+        "access granted."
+    ];
+
+    let step = 0;
+
+    function runBootSequence() {
+        if (step < bootSequence.length) {
+            const newLine = document.createElement('p');
+            newLine.innerText = '> ' + bootSequence[step];
+            bootLog.appendChild(newLine);
+
+            const progress = Math.floor(((step + 1) / bootSequence.length) * 100);
+            loadingBar.style.width = progress + '%';
+            percentageText.innerText = progress + '%';
+
+            step++;
+            const randomDelay = Math.floor(Math.random() * 250) + 150;
+            setTimeout(runBootSequence, randomDelay);
+            
+        } else {
+            setTimeout(() => {
+                preloader.style.opacity = '0';
+            
+                setTimeout(() => {
+                    preloader.remove();
+                }, 700); 
+            }, 500);
+        }
+    }
+    runBootSequence();
+});

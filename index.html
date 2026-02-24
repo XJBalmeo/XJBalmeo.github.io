@@ -32,9 +32,9 @@
     }
     .reveal-hidden {
         opacity: 0;
-        transform: translateY(40px); /* Pushes the element down slightly */
-        filter: blur(5px); /* Adds a slight out-of-focus glitch effect */
-        transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1); /* Snappy terminal-style easing */
+        transform: translateY(40px); 
+        filter: blur(5px);
+        transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     .reveal-visible {
@@ -43,7 +43,6 @@
         filter: blur(0);
     }
 
-    /* Optional delays so a grid of cards load one after the other (1... 2... 3...) */
     .delay-100 { transition-delay: 100ms; }
     .delay-200 { transition-delay: 200ms; }
     .delay-300 { transition-delay: 300ms; }
@@ -51,6 +50,24 @@
 </head>
 
 <body>
+    <div id="preloader" class="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center font-mono transition-opacity duration-700">
+    <div class="w-full max-w-lg px-6 text-left">
+        
+        <div id="boot-log" class="text-green-500 text-sm md:text-base mb-4 space-y-1 h-32 overflow-hidden flex flex-col justify-end">
+            </div>
+
+        <div class="w-full h-1 bg-green-900/30 rounded overflow-hidden mt-4 border border-green-900/50">
+            <div id="loading-bar" class="h-full bg-green-500 w-0 transition-all duration-300 ease-out"></div>
+        </div>
+
+        <div class="flex justify-between text-green-700 text-xs mt-2">
+            <span>SYS_INIT</span>
+            <span id="loading-percentage">0%</span>
+        </div>
+
+    </div>
+</div>
+
     <!--Navbar-->
     <nav class="w-full bg-black border-b border-green-800 p-4 md:px-10 flex justify-between items-center font-mono text-green-500 sticky top-0 z-50">
     <div class="font-bold text-lg md:text-xl tracking-widest text-white">
