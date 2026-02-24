@@ -1,3 +1,4 @@
+// --- 1. MATRIX RAIN BACKGROUND ---
 const canvas = document.getElementById('matrix-canvas');
 const ctx = canvas.getContext('2d');
 
@@ -38,6 +39,9 @@ window.addEventListener('resize', () => {
     canvas.width = canvas.parentElement.offsetWidth;
     canvas.height = canvas.parentElement.offsetHeight;
 });
+
+
+// --- 2. INTERSECTION OBSERVER (SCROLL RADAR) ---
 const observerOptions = {
     root: null,
     rootMargin: '0px', 
@@ -51,131 +55,102 @@ const scrollObserver = new IntersectionObserver((entries, observer) => {
     });
 }, observerOptions);
 
+
+// --- 3. MAIN LOGIC (RUNS ON LOAD) ---
 document.addEventListener('DOMContentLoaded', () => {
+    
+    // A. Start the Scroll Radar
     const hiddenElements = document.querySelectorAll('.reveal-hidden');
     hiddenElements.forEach((el) => scrollObserver.observe(el));
-});
 
-document.addEventListener('DOMContentLoaded', () => {
+    // B. Terminal Boot Preloader
     const preloader = document.getElementById('preloader');
     const bootLog = document.getElementById('boot-log');
     const loadingBar = document.getElementById('loading-bar');
     const percentageText = document.getElementById('loading-percentage');
 
-    const bootSequence = [
-        "kernel: initializing...",
-        "mounting virtual drives... [OK]",
-        "loading logic_gates.sys...",
-        "compiling java_swing_environment...",
-        "establishing secure connection...",
-        "USER IDENTIFIED: XEON_JAMIR_BALMEO",
-        "access granted."
-    ];
+    // Safety check: Only run if the preloader exists on the page
+    if (preloader && bootLog && loadingBar && percentageText) {
+        const bootSequence = [
+            "kernel: initializing...",
+            "mounting virtual drives... [OK]",
+            "loading logic_gates.sys...",
+            "compiling java_swing_environment...",
+            "establishing secure connection...",
+            "USER IDENTIFIED: XEON_JAMIR_BALMEO",
+            "access granted."
+        ];
 
-    let step = 0;
+        let step = 0;
 
-    function runBootSequence() {
-        if (step < bootSequence.length) {
-            const newLine = document.createElement('p');
-            newLine.innerText = '> ' + bootSequence[step];
-            bootLog.appendChild(newLine);
+        function runBootSequence() {
+            if (step < bootSequence.length) {
+                const newLine = document.createElement('p');
+                newLine.innerText = '> ' + bootSequence[step];
+                bootLog.appendChild(newLine);
 
-            const progress = Math.floor(((step + 1) / bootSequence.length) * 100);
-            loadingBar.style.width = progress + '%';
-            percentageText.innerText = progress + '%';
+                const progress = Math.floor(((step + 1) / bootSequence.length) * 100);
+                loadingBar.style.width = progress + '%';
+                percentageText.innerText = progress + '%';
 
-            step++;
-            const randomDelay = Math.floor(Math.random() * 250) + 150;
-            setTimeout(runBootSequence, randomDelay);
-            
-        } else {
-            setTimeout(() => {
-                preloader.style.opacity = '0';
-            
+                step++;
+                const randomDelay = Math.floor(Math.random() * 250) + 150;
+                setTimeout(runBootSequence, randomDelay);
+                
+            } else {
                 setTimeout(() => {
-                    preloader.remove();
-                }, 700); 
-            }, 500);
-        }
-    }
-    runBootSequence();
-});
-
-// --- CYBERPUNK TEXT DECRYPTOR ---
-document.addEventListener('DOMContentLoaded', () => {
-    const nameElement = document.getElementById('decrypt-name');
-    const originalText = nameElement.dataset.value;
-
-    const hackerChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*><";
-    
-    function startDecryptAnimation() {
-        let iterations = 0;
-        
-        const interval = setInterval(() => {
-            nameElement.innerText = originalText
-                .split("")
-                .map((letter, index) => {
-
-                    if (index < iterations) {
-                        return originalText[index];
-                    }
-
-                    return hackerChars[Math.floor(Math.random() * hackerChars.length)];
-                })
-                .join("");
-            
-            if (iterations >= originalText.length) {
-                clearInterval(interval);
+                    preloader.style.opacity = '0';
+                    setTimeout(() => {
+                        preloader.remove();
+                    }, 700); 
+                }, 500);
             }
-            
-            iterations += 1 / 3; 
-        }, 30);
+        }
+        runBootSequence();
     }
 
-    setTimeout(startDecryptAnimation, 3500);
-});
-
-document.addEventListener('DOMContentLoaded', () => {
+    // C. Infinite Typing Loop
     const typeTarget = document.getElementById('typewriter-text');
     
-    const phrases = [
-        "2nd-Year CS Student.",
-        "Java & Python Coder.",
-        "Data Scientist",
-        "Web Developer.",
-        "Video Gamer."
-    ];
-    
-    let phraseIndex = 0;
-    let charIndex = 0;
-    let isDeleting = false;
+    // Safety check: Only run if the typewriter span exists
+    if (typeTarget) {
+        const phrases = [
+            "2nd-Year CS Student.",
+            "Java & Python Coder.",
+            "Data Scientist",
+            "Web Developer.",
+            "Video Gamer."
+        ];
+        
+        let phraseIndex = 0;
+        let charIndex = 0;
+        let isDeleting = false;
 
-    function typeLoop() {
+        function typeLoop() {
+            const currentPhrase = phrases[phraseIndex];
 
-        const currentPhrase = phrases[phraseIndex];
+            if (isDeleting) {
+                charIndex--;
+            } else {
+                charIndex++;
+            }
 
-        if (isDeleting) {
-            charIndex--;
-        } else {
-            charIndex++;
+            typeTarget.innerText = currentPhrase.substring(0, charIndex);
+
+            let typingSpeed = isDeleting ? 50 : 100; 
+
+            if (!isDeleting && charIndex === currentPhrase.length) {
+                typingSpeed = 2000; 
+            } 
+            else if (isDeleting && charIndex === 0) {
+                isDeleting = false;
+                phraseIndex = (phraseIndex + 1) % phrases.length; 
+                typingSpeed = 500; 
+            }
+
+            setTimeout(typeLoop, typingSpeed);
         }
 
-        typeTarget.innerText = currentPhrase.substring(0, charIndex);
-
-        let typingSpeed = isDeleting ? 50 : 100; 
-
-
-        if (!isDeleting && charIndex === currentPhrase.length) {
-            typingSpeed = 2000; 
-        } 
-        else if (isDeleting && charIndex === 0) {
-            isDeleting = false;
-            phraseIndex = (phraseIndex + 1) % phrases.length; 
-            typingSpeed = 500; 
-        }
-
-        setTimeout(typeLoop, typingSpeed);
+        setTimeout(typeLoop, 3500); 
     }
-
-    setTimeout(typeLoop, 3500); 
 });
