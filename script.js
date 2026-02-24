@@ -53,7 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const phrases = [
             "2nd-Year CS Student.",
             "Java Developer.",
-            "Python Developer",
+            "Python Developer.",
             "Data Scientist.",
             "Web Developer.",
             "Video Gamer."
