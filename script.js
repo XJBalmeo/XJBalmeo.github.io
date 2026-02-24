@@ -56,14 +56,12 @@ document.addEventListener('DOMContentLoaded', () => {
     hiddenElements.forEach((el) => scrollObserver.observe(el));
 });
 
-// --- TERMINAL BOOT PRELOADER ---
 document.addEventListener('DOMContentLoaded', () => {
     const preloader = document.getElementById('preloader');
     const bootLog = document.getElementById('boot-log');
     const loadingBar = document.getElementById('loading-bar');
     const percentageText = document.getElementById('loading-percentage');
 
-    // The text sequence that will "type" out
     const bootSequence = [
         "kernel: initializing...",
         "mounting virtual drives... [OK]",
@@ -101,4 +99,83 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     runBootSequence();
+});
+
+// --- CYBERPUNK TEXT DECRYPTOR ---
+document.addEventListener('DOMContentLoaded', () => {
+    const nameElement = document.getElementById('decrypt-name');
+    const originalText = nameElement.dataset.value;
+
+    const hackerChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*><";
+    
+    function startDecryptAnimation() {
+        let iterations = 0;
+        
+        const interval = setInterval(() => {
+            nameElement.innerText = originalText
+                .split("")
+                .map((letter, index) => {
+
+                    if (index < iterations) {
+                        return originalText[index];
+                    }
+
+                    return hackerChars[Math.floor(Math.random() * hackerChars.length)];
+                })
+                .join("");
+            
+            if (iterations >= originalText.length) {
+                clearInterval(interval);
+            }
+            
+            iterations += 1 / 3; 
+        }, 30);
+    }
+
+    setTimeout(startDecryptAnimation, 3500);
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+    const typeTarget = document.getElementById('typewriter-text');
+    
+    const phrases = [
+        "2nd-Year CS Student.",
+        "Java & Python Coder.",
+        "Data Scientist",
+        "Web Developer.",
+        "Video Gamer."
+    ];
+    
+    let phraseIndex = 0;
+    let charIndex = 0;
+    let isDeleting = false;
+
+    function typeLoop() {
+
+        const currentPhrase = phrases[phraseIndex];
+
+        if (isDeleting) {
+            charIndex--;
+        } else {
+            charIndex++;
+        }
+
+        typeTarget.innerText = currentPhrase.substring(0, charIndex);
+
+        let typingSpeed = isDeleting ? 50 : 100; 
+
+
+        if (!isDeleting && charIndex === currentPhrase.length) {
+            typingSpeed = 2000; 
+        } 
+        else if (isDeleting && charIndex === 0) {
+            isDeleting = false;
+            phraseIndex = (phraseIndex + 1) % phrases.length; 
+            typingSpeed = 500; 
+        }
+
+        setTimeout(typeLoop, typingSpeed);
+    }
+
+    setTimeout(typeLoop, 3500); 
 });
