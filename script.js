@@ -144,3 +144,59 @@ document.addEventListener('DOMContentLoaded', () => {
         hiddenElements.forEach((el) => scrollObserver.observe(el));
     }
 });
+
+    // ==========================================
+    // 5. DYNAMIC REVIEWS MARQUEE
+    // ==========================================
+    
+    const reviewTrack = document.getElementById('review-track');
+    if (reviewTrack) {
+        const reviewsData = [
+            {
+                name: "Nathanielle Paz",
+                role: "Colossal Titan",
+                img: "images/nath.jpg",
+                stars: 3,
+                text: "> Solid yang tropa ko. 10/10."
+            },
+            {
+                name: "JM Castillo",
+                role: "Dormie",
+                img: "images/jm.jpg",
+                stars: 4,
+                text: "> Halimaw sa kama yan"
+            },
+            {
+                name: "Gab Evaristo",
+                role: "The Joker",
+                img: "images/gab.png",
+                stars: 5,
+                text: "> magaling yang hayop nayan. Katulong ko yan gumawa ng Roblox game, nag-AI lang."
+            }
+        ];
+
+    function createCardHTML(review) {
+            let starHTML = '';
+            for (let i = 0; i < 5; i++) {
+                starHTML += `<i class="fa-${i < review.stars ? 'solid' : 'regular'} fa-star"></i>`;
+            }
+
+            // Notice the 'flex-shrink-0' and 'max-w-[90vw]' added below!
+            return `
+            <div class="w-[500px] max-w-[90vw] flex-shrink-0 flex gap-6 bg-black/80 p-8 mx-4 border border-green-900 rounded-lg hover:border-green-500 transition-colors duration-300 backdrop-blur-md">
+                <div class="flex-shrink-0">
+                    <img src="${review.img}" alt="${review.name}" class="w-20 h-20 rounded-full border-2 border-green-800 object-cover brightness-90">
+                </div>
+                <div class="flex flex-col justify-center">
+                    <h4 class="text-green-400 font-bold text-xl">${review.name}</h4>
+                    <span class="text-green-800 text-xs uppercase tracking-wider font-mono mb-2">${review.role}</span>
+                    <div class="flex text-green-500 text-xs mb-3 gap-1">${starHTML}</div>
+                    <p class="text-green-600/90 text-base font-mono leading-relaxed">${review.text}</p>
+                </div>
+            </div>`;
+        }
+
+        const baseTrack = [...reviewsData, ...reviewsData, ...reviewsData, ...reviewsData];
+        const seamlessTrack = [...baseTrack, ...baseTrack];
+        reviewTrack.innerHTML = seamlessTrack.map(createCardHTML).join('');
+    }
