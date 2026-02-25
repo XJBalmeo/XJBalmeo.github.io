@@ -1,47 +1,66 @@
 document.addEventListener('DOMContentLoaded', () => {
 
     // ==========================================
-    // 1. TERMINAL BOOT PRELOADER
+    // 1. FUTURISTIC PORTAL PRELOADER
     // ==========================================
     const preloader = document.getElementById('preloader');
-    const bootLog = document.getElementById('boot-log');
-    const loadingBar = document.getElementById('loading-bar');
-    const percentageText = document.getElementById('loading-percentage');
+    const nameContainer = document.getElementById('loading-name');
+    const portalFlash = document.getElementById('portal-flash');
 
-    if (preloader && bootLog && loadingBar && percentageText) {
-        const bootSequence = [
-            "kernel: initializing...",
-            "mounting virtual drives... [OK]",
-            "loading logic_gates.sys...",
-            "compiling java_swing_environment...",
-            "establishing secure connection...",
-            "USER IDENTIFIED: XEON_JAMIR_BALMEO",
-            "access granted."
-        ];
+    // Safety check
+    if (preloader && nameContainer && portalFlash) {
+        const myName = "XEON BALMEO";
+        const letters = myName.split("");
+        
+        // 1. Inject each letter as an invisible, dark-gray span
+        nameContainer.innerHTML = letters.map(char => {
+            if (char === " ") return `<span class="w-4 md:w-8"></span>`; // Handle the space
+            return `<span class="opacity-0 text-gray-900 transition-all duration-300">${char}</span>`;
+        }).join("");
 
-        let step = 0;
+        const spanElements = nameContainer.querySelectorAll('span:not(.w-4)'); 
+        let delay = 0;
+        
+        // 2. Light them up one by one
+        spanElements.forEach((span) => {
+            setTimeout(() => {
+                span.classList.remove('opacity-0', 'text-gray-900');
+                span.classList.add('opacity-100', 'text-green-400');
+                // Apply a glowing neon effect
+                span.style.textShadow = "0 0 10px #22c55e, 0 0 20px #22c55e, 0 0 40px #22c55e";
+            }, delay);
+            delay += 150; // 150 milliseconds between each letter lighting up
+        });
 
-        function runBootSequence() {
-            if (step < bootSequence.length) {
-                const newLine = document.createElement('p');
-                newLine.innerText = '> ' + bootSequence[step];
-                bootLog.appendChild(newLine);
+        // 3. Trigger the Portal Warp
+        const totalLightingTime = delay + 500; // Wait half a second after the last letter lights up
 
-                const progress = Math.floor(((step + 1) / bootSequence.length) * 100);
-                loadingBar.style.width = progress + '%';
-                percentageText.innerText = progress + '%';
-
-                step++;
-                const randomDelay = Math.floor(Math.random() * 250) + 150;
-                setTimeout(runBootSequence, randomDelay);
-            } else {
+        setTimeout(() => {
+            // A. Flash the screen
+            portalFlash.classList.remove('opacity-0');
+            portalFlash.classList.add('opacity-30'); // A quick 30% green flash
+            
+            setTimeout(() => {
+                // B. Remove flash
+                portalFlash.classList.remove('opacity-30');
+                portalFlash.classList.add('opacity-0');
+                
+                // C. Zoom the name massively towards the camera and blur it
+                nameContainer.style.transform = "scale(30)";
+                nameContainer.style.opacity = "0";
+                nameContainer.style.filter = "blur(10px)";
+                
+                // D. Fade out the black background to reveal the website
+                preloader.style.opacity = "0";
+                
+                // E. Completely remove the preloader from the DOM so you can click the site
                 setTimeout(() => {
-                    preloader.style.opacity = '0';
-                    setTimeout(() => preloader.remove(), 700); 
-                }, 500);
-            }
-        }
-        runBootSequence();
+                    preloader.remove();
+                }, 1000); 
+                
+            }, 150); // Flash lasts for 150ms
+            
+        }, totalLightingTime);
     }
 
     // ==========================================
