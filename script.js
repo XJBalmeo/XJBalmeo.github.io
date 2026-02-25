@@ -181,9 +181,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 starHTML += `<i class="fa-${i < review.stars ? 'solid' : 'regular'} fa-star"></i>`;
             }
 
-            // Notice the 'flex-shrink-0' and 'max-w-[90vw]' added below!
-            return `
-            <div class="w-[500px] max-w-[90vw] flex-shrink-0 flex gap-6 bg-black/80 p-8 mx-4 border border-green-900 rounded-lg hover:border-green-500 transition-colors duration-300 backdrop-blur-md">
+        return `
+            <div class="w-[500px] max-w-[90vw] h-full flex-shrink-0 flex items-start gap-6 bg-black/80 p-8 mx-4 border border-green-900 rounded-lg hover:border-green-500 transition-colors duration-300 backdrop-blur-md">
                 <div class="flex-shrink-0">
                     <img src="${review.img}" alt="${review.name}" class="w-20 h-20 rounded-full border-2 border-green-800 object-cover brightness-90">
                 </div>
