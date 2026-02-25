@@ -7,58 +7,48 @@ document.addEventListener('DOMContentLoaded', () => {
     const nameContainer = document.getElementById('loading-name');
     const portalFlash = document.getElementById('portal-flash');
 
-    // Safety check
     if (preloader && nameContainer && portalFlash) {
         const myName = "XEON BALMEO";
         const letters = myName.split("");
         
-        // 1. Inject each letter as an invisible, dark-gray span
         nameContainer.innerHTML = letters.map(char => {
-            if (char === " ") return `<span class="w-4 md:w-8"></span>`; // Handle the space
+            if (char === " ") return `<span class="w-4 md:w-8"></span>`; 
             return `<span class="opacity-0 text-gray-900 transition-all duration-300">${char}</span>`;
         }).join("");
 
         const spanElements = nameContainer.querySelectorAll('span:not(.w-4)'); 
         let delay = 0;
         
-        // 2. Light them up one by one
         spanElements.forEach((span) => {
             setTimeout(() => {
                 span.classList.remove('opacity-0', 'text-gray-900');
                 span.classList.add('opacity-100', 'text-green-400');
-                // Apply a glowing neon effect
                 span.style.textShadow = "0 0 10px #22c55e, 0 0 20px #22c55e, 0 0 40px #22c55e";
             }, delay);
-            delay += 150; // 150 milliseconds between each letter lighting up
+            delay += 150;
         });
 
-        // 3. Trigger the Portal Warp
-        const totalLightingTime = delay + 500; // Wait half a second after the last letter lights up
+        const totalLightingTime = delay + 500; 
 
         setTimeout(() => {
-            // A. Flash the screen
             portalFlash.classList.remove('opacity-0');
-            portalFlash.classList.add('opacity-30'); // A quick 30% green flash
+            portalFlash.classList.add('opacity-30'); 
             
             setTimeout(() => {
-                // B. Remove flash
                 portalFlash.classList.remove('opacity-30');
                 portalFlash.classList.add('opacity-0');
                 
-                // C. Zoom the name massively towards the camera and blur it
                 nameContainer.style.transform = "scale(30)";
                 nameContainer.style.opacity = "0";
                 nameContainer.style.filter = "blur(10px)";
                 
-                // D. Fade out the black background to reveal the website
                 preloader.style.opacity = "0";
                 
-                // E. Completely remove the preloader from the DOM so you can click the site
                 setTimeout(() => {
                     preloader.remove();
                 }, 1000); 
                 
-            }, 150); // Flash lasts for 150ms
+            }, 150); 
             
         }, totalLightingTime);
     }
