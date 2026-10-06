@@ -1,0 +1,56 @@
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=JetBrains+Mono:wght@400;700&family=Outfit:wght@400;600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-night-sky: #0a0e1a;
+  --color-building-dark: #141b2d;
+  --color-building-mid: #1e293b;
+  --color-building-light: #293548;
+  --color-window-glow: #f6c94e;
+  --color-window-off: #1a2236;
+  --color-accent: #38bdf8;
+  --color-accent-dim: #0ea5e9;
+  --color-elevator-metal: #374151;
+  --color-elevator-door: #d4a853;
+  --color-neon-sign: #f472b6;
+  --color-car-headlight: #fef3c7;
+  --color-car-taillight: #ef4444;
+}
+
+body {
+  background-color: var(--color-night-sky);
+  color: #f1f5f9;
+  margin: 0;
+  font-family: 'Geist', system-ui, Avenir, Helvetica, Arial, sans-serif;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Outfit', system-ui, sans-serif;
+}
+
+code {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Animations */
+@keyframes twinkle {
+  0%, 100% { opacity: 0.2; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+@keyframes driveRight {
+  from { transform: translateX(-10vw); }
+  to { transform: translateX(110vw); }
+}
+
+@keyframes driveLeft {
+  from { transform: translateX(110vw); }
+  to { transform: translateX(-10vw); }
+}
+
+@keyframes windowToggle {
+  0%, 45% { background-color: var(--color-window-off); box-shadow: none; }
+  50%, 95% { background-color: var(--color-window-glow); box-shadow: 0 0 10px var(--color-window-glow); }
+  100% { background-color: var(--color-window-off); box-shadow: none; }
+}
