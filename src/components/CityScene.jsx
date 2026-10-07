@@ -72,6 +72,160 @@ const ROAD_WIDTH = 2.5;
 const BLOCK_SIZE = 5.5;
 const SPACING = ROAD_WIDTH + BLOCK_SIZE; // 8
 
+// Generate Building Window Textures
+const createBuildingTextures = () => {
+  const textures = [];
+  
+  // Texture 1: Office Building (Blue/Slate)
+  const c1 = document.createElement('canvas');
+  c1.width = 256; c1.height = 256;
+  const ctx1 = c1.getContext('2d');
+  ctx1.fillStyle = '#0f172a';
+  ctx1.fillRect(0, 0, 256, 256);
+  for(let x=10; x<256; x+=30) {
+    for(let y=10; y<256; y+=35) {
+      if(Math.random() > 0.5) {
+        ctx1.fillStyle = ['#fef08a', '#e0f2fe', '#fde047'][Math.floor(Math.random()*3)];
+        ctx1.shadowBlur = 15; ctx1.shadowColor = ctx1.fillStyle;
+      } else {
+        ctx1.fillStyle = '#020617';
+        ctx1.shadowBlur = 0;
+      }
+      ctx1.fillRect(x, y, 20, 25);
+    }
+  }
+  const t1 = new THREE.CanvasTexture(c1);
+  t1.wrapS = t1.wrapT = THREE.RepeatWrapping;
+  textures.push(t1);
+
+  // Texture 2: NY Brick Style
+  const c2 = document.createElement('canvas');
+  c2.width = 256; c2.height = 256;
+  const ctx2 = c2.getContext('2d');
+  ctx2.fillStyle = '#451a03'; // dark brick
+  ctx2.fillRect(0, 0, 256, 256);
+  for(let x=16; x<256; x+=48) {
+    for(let y=16; y<256; y+=40) {
+      if(Math.random() > 0.4) {
+        ctx2.fillStyle = '#fef08a';
+        ctx2.shadowBlur = 10; ctx2.shadowColor = ctx2.fillStyle;
+      } else {
+        ctx2.fillStyle = '#1a0d00';
+        ctx2.shadowBlur = 0;
+      }
+      ctx2.fillRect(x, y, 24, 28);
+    }
+  }
+  const t2 = new THREE.CanvasTexture(c2);
+  t2.wrapS = t2.wrapT = THREE.RepeatWrapping;
+  textures.push(t2);
+
+  // Texture 3: Modern Glass
+  const c3 = document.createElement('canvas');
+  c3.width = 256; c3.height = 256;
+  const ctx3 = c3.getContext('2d');
+  ctx3.fillStyle = '#082f49'; 
+  ctx3.fillRect(0, 0, 256, 256);
+  for(let x=4; x<256; x+=16) {
+    for(let y=4; y<256; y+=20) {
+      if(Math.random() > 0.7) {
+        ctx3.fillStyle = '#7dd3fc';
+        ctx3.shadowBlur = 5; ctx3.shadowColor = ctx3.fillStyle;
+      } else {
+        ctx3.fillStyle = '#03101a';
+        ctx3.shadowBlur = 0;
+      }
+      ctx3.fillRect(x, y, 12, 16);
+    }
+  }
+  const t3 = new THREE.CanvasTexture(c3);
+  t3.wrapS = t3.wrapT = THREE.RepeatWrapping;
+  textures.push(t3);
+
+  return textures;
+};
+const buildingTextures = createBuildingTextures();
+
+// Generate Road Textures
+const roadTextureVertical = (() => {
+  const c = document.createElement('canvas');
+  c.width = 128; c.height = 512;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#1a1a1a';
+  ctx.fillRect(0, 0, 128, 512);
+  
+  ctx.fillStyle = '#eab308';
+  for(let y=0; y<512; y+=64) {
+    ctx.fillRect(60, y+16, 8, 32);
+  }
+  
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(8, 0, 4, 512);
+  ctx.fillRect(116, 0, 4, 512);
+  
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  return t;
+})();
+
+const roadTextureHorizontal = (() => {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 128;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#1a1a1a';
+  ctx.fillRect(0, 0, 512, 128);
+  
+  ctx.fillStyle = '#eab308';
+  for(let x=0; x<512; x+=64) {
+    ctx.fillRect(x+16, 60, 32, 8);
+  }
+  
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 8, 512, 4);
+  ctx.fillRect(0, 116, 512, 4);
+  
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  return t;
+})();
+
+function BuildingMesh({ b }) {
+  const tex = useMemo(() => {
+    const t = buildingTextures[b.texIndex].clone();
+    t.needsUpdate = true;
+    t.repeat.set(b.scale[0], b.scale[1]);
+    return t;
+  }, [b.scale, b.texIndex]);
+
+  return (
+    <group position={b.position}>
+      <mesh castShadow receiveShadow>
+        <boxGeometry args={b.scale} />
+        <meshStandardMaterial 
+          map={tex} 
+          emissiveMap={tex} 
+          emissive="#ffffff" 
+          emissiveIntensity={0.6}
+          color={b.color} 
+          roughness={0.7} 
+          metalness={0.3} 
+        />
+      </mesh>
+      {/* Roof detailing */}
+      <mesh position={[0, b.scale[1]/2 + 0.1, 0]} castShadow>
+        <boxGeometry args={[b.scale[0] * 0.8, 0.2, b.scale[2] * 0.8]} />
+        <meshStandardMaterial color="#111" roughness={0.9} />
+      </mesh>
+      {b.hasNeon && (
+        <mesh position={[b.scale[0]/2 + 0.01, 0, b.scale[2]/2 + 0.01]} rotation={[0, Math.PI/4, 0]}>
+          <planeGeometry args={[0.05, b.scale[1] * 0.9]} />
+          <meshBasicMaterial color={new THREE.Color(b.neonColor).multiplyScalar(4)} toneMapped={false} />
+        </mesh>
+      )}
+    </group>
+  );
+}
+
 function AmbientCityGrid() {
   const { blocks, roads } = useMemo(() => {
     const bldgs = [];
@@ -80,10 +234,8 @@ function AmbientCityGrid() {
     // Generate roads
     for (let i = -4; i <= 4; i++) {
        const pos = i * SPACING;
-       // Vertical roads (along Z) -> scale X is width, Y is length
        roadPlanes.push({ pos: [pos, 0.01, 0], scale: [ROAD_WIDTH, 120], rot: [-Math.PI/2, 0, 0] });
-       // Horizontal roads (along X) -> scale X is length, Y is width
-       roadPlanes.push({ pos: [0, 0.01, pos], scale: [120, ROAD_WIDTH], rot: [-Math.PI/2, 0, 0] });
+       roadPlanes.push({ pos: [0, 0.02, pos], scale: [120, ROAD_WIDTH], rot: [-Math.PI/2, 0, 0] });
     }
 
     // Generate buildings inside blocks
@@ -93,21 +245,19 @@ function AmbientCityGrid() {
         const centerX = xIdx * SPACING + (SPACING / 2); 
         const centerZ = zIdx * SPACING + (SPACING / 2);
 
-        // Leave gaps for the interactive buildings (which are perfectly at block centers now)
         const isInteractiveBlock = interactiveBuildings.some(b => 
           Math.abs(b.position[0] - centerX) < 1 && Math.abs(b.position[2] - centerZ) < 1
         );
         if (isInteractiveBlock) continue;
 
-        // Subdivide block into 4 smaller buildings
         for(let dx of [-1.2, 1.2]) {
             for(let dz of [-1.2, 1.2]) {
-                if (Math.random() > 0.85) continue; // occasional empty lot
+                if (Math.random() > 0.85) continue; 
                 
                 const bx = centerX + dx;
                 const bz = centerZ + dz;
-                const height = Math.random() * 5 + 1.5;
-                const scale = [Math.random() * 1 + 1.2, height, Math.random() * 1 + 1.2];
+                const height = Math.random() * 6 + 2.5; // Taller buildings for NY feel
+                const scale = [Math.random() * 1.5 + 1.2, height, Math.random() * 1.5 + 1.2];
                 const hasNeon = Math.random() > 0.7;
                 const neonColor = ['#f472b6', '#38bdf8', '#a78bfa', '#34d399'][Math.floor(Math.random() * 4)];
                 
@@ -115,7 +265,8 @@ function AmbientCityGrid() {
                     position: [bx, height / 2, bz],
                     scale,
                     color: colors[Math.floor(Math.random() * colors.length)],
-                    hasNeon, neonColor
+                    hasNeon, neonColor,
+                    texIndex: Math.floor(Math.random() * 3)
                 });
             }
         }
@@ -128,33 +279,35 @@ function AmbientCityGrid() {
     <group>
       {roads.map((r, i) => {
          const isVertical = r.scale[0] === ROAD_WIDTH;
+         const tex = isVertical ? roadTextureVertical.clone() : roadTextureHorizontal.clone();
+         tex.needsUpdate = true;
+         if (isVertical) {
+           tex.repeat.set(1, r.scale[1] / 10);
+         } else {
+           tex.repeat.set(r.scale[0] / 10, 1);
+         }
+
          return (
          <group key={`road-${i}`} position={r.pos} rotation={r.rot}>
+            {/* Street with Markings */}
             <mesh receiveShadow>
                <planeGeometry args={r.scale} />
-               <meshStandardMaterial color="#050505" roughness={0.8} />
+               <meshStandardMaterial map={tex} roughness={0.8} />
             </mesh>
-            <mesh position={[0, 0, 0.01]}>
-               <planeGeometry args={isVertical ? [0.05, r.scale[1]] : [r.scale[0], 0.05]} />
-               <meshBasicMaterial color="#333333" />
+            
+            {/* Sidewalks */}
+            <mesh position={[isVertical ? ROAD_WIDTH/2 + 0.6 : 0, isVertical ? 0 : ROAD_WIDTH/2 + 0.6, 0.01]} receiveShadow>
+               <planeGeometry args={isVertical ? [1.2, r.scale[1]] : [r.scale[0], 1.2]} />
+               <meshStandardMaterial color="#666666" roughness={1} />
+            </mesh>
+            <mesh position={[isVertical ? -ROAD_WIDTH/2 - 0.6 : 0, isVertical ? 0 : -ROAD_WIDTH/2 - 0.6, 0.01]} receiveShadow>
+               <planeGeometry args={isVertical ? [1.2, r.scale[1]] : [r.scale[0], 1.2]} />
+               <meshStandardMaterial color="#666666" roughness={1} />
             </mesh>
          </group>
       )})}
 
-      {blocks.map((b, i) => (
-        <group key={`bldg-${i}`} position={b.position}>
-          <mesh castShadow receiveShadow>
-            <boxGeometry args={b.scale} />
-            <meshStandardMaterial color={b.color} roughness={0.5} metalness={0.4} />
-          </mesh>
-          {b.hasNeon && (
-             <mesh position={[b.scale[0]/2 + 0.01, 0, b.scale[2]/2 + 0.01]} rotation={[0, Math.PI/4, 0]}>
-                <planeGeometry args={[0.05, b.scale[1] * 0.9]} />
-                <meshBasicMaterial color={new THREE.Color(b.neonColor).multiplyScalar(4)} toneMapped={false} />
-             </mesh>
-          )}
-        </group>
-      ))}
+      {blocks.map((b, i) => <BuildingMesh key={`bldg-${i}`} b={b} />)}
 
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]} receiveShadow>
         <planeGeometry args={[200, 200]} />
