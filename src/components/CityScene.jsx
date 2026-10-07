@@ -3,14 +3,15 @@ import { motion, useReducedMotion, AnimatePresence } from 'framer-motion';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Stars, PerspectiveCamera, useCursor, Html } from '@react-three/drei';
 import * as THREE from 'three';
+import { EffectComposer, Bloom } from '@react-three/postprocessing';
 
-// 5 Interactive Buildings
+// 5 Interactive Buildings located at Block Centers (combinations of +/- 4, +/- 12)
 const interactiveBuildings = [
-  { id: 'about', label: 'ABOUT', position: [-4, 2, -4], color: '#1e293b', scale: [1.5, 4, 1.5], type: 'tower' },
-  { id: 'education', label: 'EDUCATION', position: [0, 1.5, -3], color: '#141b2d', scale: [2, 3, 2], type: 'block' },
-  { id: 'skills', label: 'SKILLS', position: [4, 2.5, -4], color: '#293548', scale: [1.5, 5, 1.5], type: 'antenna' },
-  { id: 'projects', label: 'PROJECTS', position: [-2, 1.8, 2], color: '#1e293b', scale: [2.5, 3.6, 2.5], type: 'windows' },
-  { id: 'contact', label: 'CONTACT', position: [3, 1.2, 3], color: '#141b2d', scale: [1.5, 2.4, 1.5], type: 'cozy' }
+  { id: 'about', label: 'ABOUT', position: [-4, 2, -4], color: '#3b82f6', scale: [2, 4, 2], type: 'tower' },
+  { id: 'education', label: 'EDUCATION', position: [4, 1.5, -4], color: '#8b5cf6', scale: [2.5, 3, 2.5], type: 'block' },
+  { id: 'skills', label: 'SKILLS', position: [-4, 2.5, 4], color: '#ec4899', scale: [2, 5, 2], type: 'antenna' },
+  { id: 'projects', label: 'PROJECTS', position: [4, 1.8, 4], color: '#10b981', scale: [3, 3.6, 3], type: 'windows' },
+  { id: 'contact', label: 'CONTACT', position: [12, 1.2, -4], color: '#f59e0b', scale: [2, 2.4, 2], type: 'cozy' }
 ];
 
 function InteractiveBuilding({ data, onClick, isZooming }) {
@@ -21,7 +22,7 @@ function InteractiveBuilding({ data, onClick, isZooming }) {
 
   useFrame((state, delta) => {
     if (!meshRef.current || isZooming) return;
-    const targetY = hovered ? data.position[1] + 0.3 : data.position[1];
+    const targetY = hovered ? data.position[1] + 0.5 : data.position[1];
     meshRef.current.position.y = THREE.MathUtils.damp(meshRef.current.position.y, targetY, 10, delta);
   });
 
@@ -38,72 +39,296 @@ function InteractiveBuilding({ data, onClick, isZooming }) {
     >
       <mesh castShadow receiveShadow>
         <boxGeometry args={data.scale} />
-        <meshStandardMaterial color={hovered ? '#38bdf8' : data.color} roughness={0.3} metalness={0.2} />
+        <meshStandardMaterial color={data.color} roughness={0.2} metalness={0.5} emissive={hovered ? data.color : '#000000'} emissiveIntensity={hovered ? 0.5 : 0} />
       </mesh>
       
       {/* Neon Sign */}
       <Html
-        position={[0, data.scale[1] / 2 + 0.4, 0]}
+        position={[0, data.scale[1] / 2 + 0.6, 0]}
         center
         transform
         distanceFactor={15}
       >
         <div 
-          className="font-bold tracking-widest text-[#f472b6] bg-slate-900/50 px-2 py-1 rounded-full backdrop-blur-md"
+          className="font-bold tracking-[0.3em] uppercase text-white bg-slate-900/80 px-4 py-2 rounded-xl backdrop-blur-md border border-white/10"
           style={{ 
             fontFamily: 'Outfit',
-            textShadow: '0 0 5px #f472b6, 0 0 10px #f472b6',
-            pointerEvents: 'none'
+            pointerEvents: 'none',
+            boxShadow: hovered ? `0 0 20px ${data.color}` : 'none',
+            transition: 'all 0.3s ease'
           }}
         >
           {data.label}
         </div>
       </Html>
       
-      {hovered && <pointLight position={[0, 0, 1.5]} color="#38bdf8" intensity={2} distance={3} />}
+      {hovered && <pointLight position={[0, 0, 1.5]} color={data.color} intensity={5} distance={10} />}
     </group>
   );
 }
 
-function AmbientCityGrid() {
-  // Generate a grid of ambient background buildings
-  const grid = useMemo(() => {
-    const bldgs = [];
-    const gridSize = 12; // 12x12 grid
-    const spacing = 2; // space between buildings
-    const colors = ['#0f172a', '#141b2d', '#0a0e1a'];
+// Constants for City Grid
+const ROAD_WIDTH = 2.5;
+const BLOCK_SIZE = 5.5;
+const SPACING = ROAD_WIDTH + BLOCK_SIZE; // 8
 
-    for (let x = -gridSize; x <= gridSize; x += spacing) {
-      for (let z = -gridSize; z <= gridSize; z += spacing) {
-        // Leave gaps for roads and interactive buildings
-        if (Math.abs(x) < 5 && Math.abs(z) < 5 && Math.random() > 0.3) continue;
-        // Occasional empty lots
-        if (Math.random() > 0.8) continue;
-        
-        const height = Math.random() * 2 + 0.5;
-        bldgs.push({
-          position: [x, height / 2, z],
-          scale: [Math.random() * 0.8 + 0.6, height, Math.random() * 0.8 + 0.6],
-          color: colors[Math.floor(Math.random() * colors.length)]
-        });
+function AmbientCityGrid() {
+  const { blocks, roads } = useMemo(() => {
+    const bldgs = [];
+    const roadPlanes = [];
+    
+    // Generate roads
+    for (let i = -4; i <= 4; i++) {
+       const pos = i * SPACING;
+       // Vertical roads (along Z) -> scale X is width, Y is length
+       roadPlanes.push({ pos: [pos, 0.01, 0], scale: [ROAD_WIDTH, 120], rot: [-Math.PI/2, 0, 0] });
+       // Horizontal roads (along X) -> scale X is length, Y is width
+       roadPlanes.push({ pos: [0, 0.01, pos], scale: [120, ROAD_WIDTH], rot: [-Math.PI/2, 0, 0] });
+    }
+
+    // Generate buildings inside blocks
+    const colors = ['#1e293b', '#334155', '#0f172a', '#475569', '#2d3748'];
+    for (let xIdx = -3; xIdx <= 3; xIdx++) {
+      for (let zIdx = -3; zIdx <= 3; zIdx++) {
+        const centerX = xIdx * SPACING + (SPACING / 2); 
+        const centerZ = zIdx * SPACING + (SPACING / 2);
+
+        // Leave gaps for the interactive buildings (which are perfectly at block centers now)
+        const isInteractiveBlock = interactiveBuildings.some(b => 
+          Math.abs(b.position[0] - centerX) < 1 && Math.abs(b.position[2] - centerZ) < 1
+        );
+        if (isInteractiveBlock) continue;
+
+        // Subdivide block into 4 smaller buildings
+        for(let dx of [-1.2, 1.2]) {
+            for(let dz of [-1.2, 1.2]) {
+                if (Math.random() > 0.85) continue; // occasional empty lot
+                
+                const bx = centerX + dx;
+                const bz = centerZ + dz;
+                const height = Math.random() * 5 + 1.5;
+                const scale = [Math.random() * 1 + 1.2, height, Math.random() * 1 + 1.2];
+                const hasNeon = Math.random() > 0.7;
+                const neonColor = ['#f472b6', '#38bdf8', '#a78bfa', '#34d399'][Math.floor(Math.random() * 4)];
+                
+                bldgs.push({
+                    position: [bx, height / 2, bz],
+                    scale,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    hasNeon, neonColor
+                });
+            }
+        }
       }
     }
-    return bldgs;
+    return { blocks: bldgs, roads: roadPlanes };
   }, []);
 
   return (
     <group>
-      {grid.map((b, i) => (
-        <mesh key={i} position={b.position} castShadow receiveShadow>
-          <boxGeometry args={b.scale} />
-          <meshStandardMaterial color={b.color} roughness={0.7} />
-        </mesh>
+      {roads.map((r, i) => {
+         const isVertical = r.scale[0] === ROAD_WIDTH;
+         return (
+         <group key={`road-${i}`} position={r.pos} rotation={r.rot}>
+            <mesh receiveShadow>
+               <planeGeometry args={r.scale} />
+               <meshStandardMaterial color="#050505" roughness={0.8} />
+            </mesh>
+            <mesh position={[0, 0, 0.01]}>
+               <planeGeometry args={isVertical ? [0.05, r.scale[1]] : [r.scale[0], 0.05]} />
+               <meshBasicMaterial color="#333333" />
+            </mesh>
+         </group>
+      )})}
+
+      {blocks.map((b, i) => (
+        <group key={`bldg-${i}`} position={b.position}>
+          <mesh castShadow receiveShadow>
+            <boxGeometry args={b.scale} />
+            <meshStandardMaterial color={b.color} roughness={0.5} metalness={0.4} />
+          </mesh>
+          {b.hasNeon && (
+             <mesh position={[b.scale[0]/2 + 0.01, 0, b.scale[2]/2 + 0.01]} rotation={[0, Math.PI/4, 0]}>
+                <planeGeometry args={[0.05, b.scale[1] * 0.9]} />
+                <meshBasicMaterial color={new THREE.Color(b.neonColor).multiplyScalar(4)} toneMapped={false} />
+             </mesh>
+          )}
+        </group>
       ))}
-      {/* Floor */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
-        <planeGeometry args={[50, 50]} />
-        <meshStandardMaterial color="#050810" />
+
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]} receiveShadow>
+        <planeGeometry args={[200, 200]} />
+        <meshStandardMaterial color="#020617" />
       </mesh>
+    </group>
+  );
+}
+
+function Car({ carData }) {
+  const carRef = useRef();
+  
+  useFrame((state, delta) => {
+    if (carRef.current) {
+      if (carData.isZAxis) {
+        carRef.current.position.z += carData.speed * delta;
+        if (carRef.current.position.z > 60) carRef.current.position.z = -60;
+        if (carRef.current.position.z < -60) carRef.current.position.z = 60;
+      } else {
+        carRef.current.position.x += carData.speed * delta;
+        if (carRef.current.position.x > 60) carRef.current.position.x = -60;
+        if (carRef.current.position.x < -60) carRef.current.position.x = 60;
+      }
+    }
+  });
+
+  const isForward = carData.speed > 0;
+  const rotation = carData.isZAxis ? 0 : Math.PI / 2;
+
+  return (
+    <group 
+      ref={carRef}
+      position={carData.isZAxis ? [carData.fixedAxisPos, 0.2, carData.startPos] : [carData.startPos, 0.2, carData.fixedAxisPos]}
+      rotation={[0, rotation, 0]}
+    >
+      <mesh castShadow receiveShadow position={[0, 0.2, 0]}>
+        <boxGeometry args={[0.4, 0.3, 0.8]} />
+        <meshStandardMaterial color={carData.color} roughness={0.2} metalness={0.8} />
+      </mesh>
+      
+      {/* Headlights */}
+      <mesh position={[0.15, 0.2, isForward ? 0.41 : -0.41]}>
+         <planeGeometry args={[0.1, 0.1]} />
+         <meshBasicMaterial color={new THREE.Color('#ffffff').multiplyScalar(6)} toneMapped={false} />
+      </mesh>
+      <mesh position={[-0.15, 0.2, isForward ? 0.41 : -0.41]}>
+         <planeGeometry args={[0.1, 0.1]} />
+         <meshBasicMaterial color={new THREE.Color('#ffffff').multiplyScalar(6)} toneMapped={false} />
+      </mesh>
+
+      {/* Taillights */}
+      <mesh position={[0.15, 0.2, isForward ? -0.41 : 0.41]}>
+         <planeGeometry args={[0.1, 0.1]} />
+         <meshBasicMaterial color={new THREE.Color('#ff0000').multiplyScalar(5)} toneMapped={false} />
+      </mesh>
+      <mesh position={[-0.15, 0.2, isForward ? -0.41 : 0.41]}>
+         <planeGeometry args={[0.1, 0.1]} />
+         <meshBasicMaterial color={new THREE.Color('#ff0000').multiplyScalar(5)} toneMapped={false} />
+      </mesh>
+    </group>
+  );
+}
+
+function Traffic() {
+  const initialCars = useMemo(() => {
+    const cars = [];
+    const roads = [-24, -16, -8, 0, 8, 16, 24];
+    
+    for (let i = 0; i < 80; i++) {
+      const isZAxis = Math.random() > 0.5; 
+      const roadPos = roads[Math.floor(Math.random() * roads.length)];
+      
+      const isPositiveLane = Math.random() > 0.5;
+      const laneOffset = isPositiveLane ? 0.5 : -0.5;
+      const fixedAxisPos = roadPos + laneOffset;
+      
+      const startPos = Math.random() * 120 - 60;
+      const speed = (Math.random() * 10 + 6) * (isPositiveLane ? 1 : -1);
+      
+      const color = ['#ffffff', '#ff3333', '#3333ff', '#111111', '#ffcc00'][Math.floor(Math.random() * 5)];
+      cars.push({ isZAxis, fixedAxisPos, startPos, speed, color });
+    }
+    return cars;
+  }, []);
+
+  return (
+    <group>
+      {initialCars.map((car, i) => <Car key={i} carData={car} />)}
+    </group>
+  );
+}
+
+function StreetLights() {
+  const lights = useMemo(() => {
+    const l = [];
+    const roadLines = [-24, -16, -8, 0, 8, 16, 24];
+    
+    roadLines.forEach(rx => {
+       for(let z = -30; z <= 30; z += 8) {
+          l.push([rx + 1.4, 2, z]);
+          l.push([rx - 1.4, 2, z]);
+       }
+    });
+    roadLines.forEach(rz => {
+       for(let x = -30; x <= 30; x += 8) {
+          if (Math.abs(x % 8) < 2) continue; // skip intersections mostly
+          l.push([x, 2, rz + 1.4]); 
+          l.push([x, 2, rz - 1.4]); 
+       }
+    });
+    return l;
+  }, []);
+
+  return (
+    <group>
+      {lights.map((pos, i) => (
+        <group key={i} position={pos}>
+           <mesh position={[0, -1, 0]}>
+              <cylinderGeometry args={[0.04, 0.08, 2]} />
+              <meshStandardMaterial color="#222" />
+           </mesh>
+           <mesh position={[0, 0, 0]}>
+              <sphereGeometry args={[0.15]} />
+              <meshBasicMaterial color={new THREE.Color('#fef08a').multiplyScalar(5)} toneMapped={false} />
+           </mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
+function MovingClouds() {
+  const cloudsRef = useRef([]);
+  
+  const cloudsData = useMemo(() => {
+    const arr = [];
+    for (let i = 0; i < 20; i++) {
+      arr.push({
+        pos: [Math.random() * 100 - 50, Math.random() * 10 + 15, Math.random() * 80 - 40],
+        scale: Math.random() * 2 + 1.5,
+        speed: Math.random() * 1 + 0.5,
+        opacity: Math.random() * 0.15 + 0.05
+      });
+    }
+    return arr;
+  }, []);
+
+  useFrame((state, delta) => {
+    cloudsRef.current.forEach((cloud, i) => {
+      if (cloud) {
+        cloud.position.x += cloudsData[i].speed * delta;
+        if (cloud.position.x > 50) cloud.position.x = -50;
+      }
+    });
+  });
+
+  return (
+    <group>
+      {cloudsData.map((data, i) => (
+        <group key={i} ref={el => cloudsRef.current[i] = el} position={data.pos}>
+          <mesh position={[0, 0, 0]}>
+            <sphereGeometry args={[data.scale, 16, 16]} />
+            <meshBasicMaterial color="#ffffff" transparent opacity={data.opacity} />
+          </mesh>
+          <mesh position={[data.scale * 0.8, -data.scale * 0.2, 0]}>
+            <sphereGeometry args={[data.scale * 0.7, 16, 16]} />
+            <meshBasicMaterial color="#ffffff" transparent opacity={data.opacity} />
+          </mesh>
+          <mesh position={[-data.scale * 0.8, -data.scale * 0.2, 0]}>
+            <sphereGeometry args={[data.scale * 0.6, 16, 16]} />
+            <meshBasicMaterial color="#ffffff" transparent opacity={data.opacity} />
+          </mesh>
+        </group>
+      ))}
     </group>
   );
 }
@@ -111,25 +336,21 @@ function AmbientCityGrid() {
 function CameraRig({ targetBuilding, onZoomComplete }) {
   useFrame((state, delta) => {
     if (targetBuilding) {
-      // Zoom into the selected building from a high angle
       const targetPos = new THREE.Vector3(
-        targetBuilding.position[0] + 5, 
-        targetBuilding.position[1] + 5, 
-        targetBuilding.position[2] + 5
+        targetBuilding.position[0] + 6, 
+        targetBuilding.position[1] + 6, 
+        targetBuilding.position[2] + 6
       );
       state.camera.position.lerp(targetPos, 0.05);
       state.camera.lookAt(targetBuilding.position[0], targetBuilding.position[1], targetBuilding.position[2]);
       
-      // If close enough, complete zoom
       if (state.camera.position.distanceTo(targetPos) < 0.5) {
         onZoomComplete();
       }
     } else {
-      // Isometric default view: [20, 20, 20] looking at center
-      // Idle mouse parallax
-      const targetX = 20 + (state.pointer.x * 3);
-      const targetY = 20 + (state.pointer.y * 3);
-      const targetZ = 20 + (state.pointer.x * 2);
+      const targetX = 25 + (state.pointer.x * 5);
+      const targetY = 25 + (state.pointer.y * 5);
+      const targetZ = 25 + (state.pointer.x * 3);
       
       state.camera.position.x = THREE.MathUtils.damp(state.camera.position.x, targetX, 2, delta);
       state.camera.position.y = THREE.MathUtils.damp(state.camera.position.y, targetY, 2, delta);
@@ -159,7 +380,7 @@ export default function CityScene({ onEnter }) {
 
   return (
     <motion.div 
-      className="w-full h-[100dvh] relative bg-[#0a0e1a]"
+      className="w-full h-[100dvh] relative bg-[#0f172a]"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }} 
@@ -168,17 +389,24 @@ export default function CityScene({ onEnter }) {
       {/* 3D Canvas */}
       <div className="absolute inset-0 z-0">
         <Canvas shadows>
-          <PerspectiveCamera makeDefault position={[20, 20, 20]} fov={25} />
-          <color attach="background" args={['#0a0e1a']} />
-          <fog attach="fog" args={['#0a0e1a', 20, 60]} />
+          <PerspectiveCamera makeDefault position={[25, 25, 25]} fov={30} />
+          <color attach="background" args={['#17162b']} />
+          <fog attach="fog" args={['#17162b', 20, 90]} />
           
-          <ambientLight intensity={0.4} />
-          <directionalLight position={[10, 20, 10]} intensity={1.5} castShadow shadow-mapSize={[2048, 2048]} />
-          <pointLight position={[0, 5, 0]} intensity={1} color="#f6c94e" distance={15} />
+          <ambientLight intensity={1.5} color="#a5b4fc" />
+          <directionalLight position={[20, 40, 20]} intensity={3} color="#818cf8" castShadow shadow-mapSize={[2048, 2048]} />
+          <pointLight position={[0, 15, 0]} intensity={2.5} color="#f472b6" distance={50} />
           
-          <Stars radius={50} depth={50} count={1000} factor={4} saturation={0} fade speed={1} />
+          <EffectComposer>
+            <Bloom luminanceThreshold={1} mipmapBlur intensity={1.5} />
+          </EffectComposer>
+          
+          <Stars radius={60} depth={50} count={3000} factor={4} saturation={1} fade speed={2} />
           
           <AmbientCityGrid />
+          <Traffic />
+          <StreetLights />
+          <MovingClouds />
           
           {/* Interactive Buildings */}
           <group>
@@ -195,24 +423,65 @@ export default function CityScene({ onEnter }) {
       <AnimatePresence>
         {!zoomingTo && (
           <motion.div 
-            className="absolute inset-0 flex flex-col justify-end pb-12 px-8 md:px-24 z-10 pointer-events-none"
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 30 }}
-            transition={{ duration: 0.8, delay: 0.2, type: 'spring' }}
+            className="absolute inset-0 z-10 pointer-events-none flex flex-col justify-between p-8 md:p-16"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, transition: { duration: 0.3 } }}
+            transition={{ duration: 0.8, delay: 0.2 }}
           >
-            <div className="max-w-xl bg-[#0a0e1a]/60 p-8 rounded-3xl backdrop-blur-md border border-slate-800 pointer-events-auto shadow-2xl">
-              <h1 className="text-4xl md:text-6xl font-bold tracking-tighter text-text-primary mb-2">XEON BALMEO</h1>
-              <p className="text-lg text-slate-400 mb-4 font-mono tracking-wide">Computer Science Student</p>
-              <p className="text-base text-slate-300 mb-6 leading-relaxed">
-                Specializing in logic-driven applications & web development.
-              </p>
-              <button 
-                className="px-6 py-2 bg-accent text-slate-950 font-bold rounded-full hover:bg-accent-dim transition-colors duration-300 shadow-[0_0_15px_rgba(56,189,248,0.3)]"
-                onClick={() => handleBuildingClick(interactiveBuildings[3])}
+            <div className="flex justify-between items-center w-full pointer-events-auto">
+               <div className="text-2xl font-black tracking-[0.2em] text-white mix-blend-screen">XEON.STUDIO</div>
+               <div className="text-sm font-mono text-slate-300 tracking-widest hidden md:block px-4 py-1 border border-white/20 rounded-full backdrop-blur-md">GAMIFIED PORTFOLIO</div>
+            </div>
+
+            <div className="flex flex-col items-start w-full mt-auto mb-16 md:mb-24 pointer-events-auto">
+              <motion.div
+                initial={{ y: 50, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ duration: 1, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                className="mb-4"
               >
-                Explore Projects &rarr;
-              </button>
+                <motion.div
+                  animate={{ y: [0, -8, 0], rotate: [0, 0.5, -0.5, 0] }}
+                  transition={{ repeat: Infinity, duration: 6, ease: "easeInOut" }}
+                >
+                  <h1 
+                    className="text-[10vw] md:text-[6vw] leading-[0.85] font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-white via-indigo-200 to-pink-300 uppercase"
+                    style={{ filter: 'drop-shadow(0 10px 20px rgba(0,0,0,0.5))' }}
+                  >
+                    Interactive<br />Developer
+                  </h1>
+                </motion.div>
+              </motion.div>
+              <motion.div 
+                className="flex flex-col md:flex-row items-start md:items-center gap-8 mt-8 w-full"
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ duration: 1, delay: 0.6, ease: [0.16, 1, 0.3, 1] }}
+              >
+                <p className="text-base md:text-xl font-medium text-slate-200 max-w-md leading-relaxed tracking-wide drop-shadow-lg">
+                  Building vibrant, logic-driven digital experiences. 
+                </p>
+                <div className="hidden md:block w-16 h-[2px] bg-indigo-400"></div>
+                <button 
+                  className="group relative px-10 py-5 bg-indigo-600/20 text-white font-bold tracking-[0.2em] uppercase overflow-hidden border border-indigo-400/50 rounded-full hover:border-indigo-400 transition-all duration-500 backdrop-blur-lg shadow-[0_0_20px_rgba(129,140,248,0.2)]"
+                  onClick={() => handleBuildingClick(interactiveBuildings[3])}
+                >
+                  <span className="relative z-10 transition-colors duration-500 group-hover:text-black">START EXPERIENCE</span>
+                  <div className="absolute inset-0 bg-indigo-400 translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-out z-0"></div>
+                </button>
+              </motion.div>
+            </div>
+            
+            <div className="absolute bottom-12 right-12 text-white hidden md:flex flex-col items-center gap-6">
+               <div className="text-xs font-bold tracking-[0.3em] rotate-90 origin-right translate-y-[-30px] text-indigo-300">DISCOVER</div>
+               <div className="w-[2px] h-20 bg-white/10 overflow-hidden relative rounded-full">
+                  <motion.div 
+                    className="w-full h-1/2 bg-indigo-400 rounded-full"
+                    animate={{ y: [0, 80] }}
+                    transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}
+                  />
+               </div>
             </div>
           </motion.div>
         )}
