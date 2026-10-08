@@ -7,31 +7,60 @@ import { EffectComposer, Bloom } from '@react-three/postprocessing';
 
 // 5 Interactive Buildings located at Block Centers (combinations of +/- 4, +/- 12)
 const interactiveBuildings = [
-  { id: 'about', label: 'ABOUT', position: [-4, 2, -4], color: '#3b82f6', scale: [2, 4, 2], type: 'tower' },
-  { id: 'education', label: 'EDUCATION', position: [4, 1.5, -4], color: '#8b5cf6', scale: [2.5, 3, 2.5], type: 'block' },
-  { id: 'skills', label: 'SKILLS', position: [-4, 2.5, 4], color: '#ec4899', scale: [2, 5, 2], type: 'antenna' },
-  { id: 'projects', label: 'PROJECTS', position: [4, 1.8, 4], color: '#10b981', scale: [3, 3.6, 3], type: 'windows' },
-  { id: 'contact', label: 'CONTACT', position: [12, 1.2, -4], color: '#f59e0b', scale: [2, 2.4, 2], type: 'cozy' }
+  { id: 'about', label: 'ABOUT', position: [-4, 3, -4], color: '#38bdf8', scale: [2, 6, 2], type: 'tower' },
+  { id: 'education', label: 'EDUCATION', position: [4, 2.5, -4], color: '#a78bfa', scale: [3, 5, 2.5], type: 'block' },
+  { id: 'skills', label: 'SKILLS', position: [-4, 3.5, 4], color: '#f472b6', scale: [2, 7, 2], type: 'antenna' },
+  { id: 'projects', label: 'PROJECTS', position: [4, 2.8, 4], color: '#34d399', scale: [3.5, 5.6, 3.5], type: 'tiered' },
+  { id: 'contact', label: 'CONTACT', position: [12, 2, -4], color: '#fbbf24', scale: [2.5, 4, 2.5], type: 'pavilion' }
 ];
 
 const globalTrafficState = { zGreen: true, timer: 0 };
 
+const createWindowTex = () => {
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 256;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#020202';
+  ctx.fillRect(0, 0, 256, 256);
+  for(let x = 8; x < 256; x += 32) {
+    for(let y = 8; y < 256; y += 32) {
+      if(Math.random() > 0.3) {
+        ctx.fillStyle = Math.random() > 0.8 ? '#fef08a' : '#38bdf8';
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = ctx.fillStyle;
+        ctx.fillRect(x, y, 16, 20);
+      } else {
+        ctx.fillStyle = '#0a0a0a';
+        ctx.shadowBlur = 0;
+        ctx.fillRect(x, y, 16, 20);
+      }
+    }
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.magFilter = THREE.LinearFilter;
+  t.minFilter = THREE.LinearMipMapLinearFilter;
+  return t;
+};
+const windowTexture = createWindowTex();
+
 function InteractiveBuilding({ data, onClick, isZooming }) {
   const groupRef = useRef();
-  const ringRef = useRef();
   const [hovered, setHovered] = useState(false);
-  
   useCursor(hovered);
 
   useFrame((state, delta) => {
     if (!groupRef.current || isZooming) return;
-    const targetY = hovered ? data.position[1] + 1.0 : data.position[1];
+    const targetY = hovered ? data.position[1] + 0.4 : data.position[1];
     groupRef.current.position.y = THREE.MathUtils.damp(groupRef.current.position.y, targetY, 10, delta);
-    if (ringRef.current) {
-      ringRef.current.rotation.y += delta * (hovered ? 2 : 0.5);
-      ringRef.current.rotation.x += delta * (hovered ? 1 : 0.2);
-    }
   });
+
+  const tex = useMemo(() => {
+    const t = windowTexture.clone();
+    t.needsUpdate = true;
+    t.repeat.set(data.scale[0], data.scale[1]);
+    return t;
+  }, [data.scale]);
 
   return (
     <group 
@@ -39,50 +68,60 @@ function InteractiveBuilding({ data, onClick, isZooming }) {
       ref={groupRef}
       onPointerOver={(e) => { e.stopPropagation(); setHovered(true); }}
       onPointerOut={() => setHovered(false)}
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick(data);
-      }}
+      onClick={(e) => { e.stopPropagation(); onClick(data); }}
     >
-      {/* Core Block */}
+      {/* Main Building Body */}
       <mesh castShadow receiveShadow>
         <boxGeometry args={data.scale} />
-        <meshStandardMaterial color="#050505" roughness={0.1} metalness={0.9} />
+        <meshStandardMaterial 
+          color="#0a0a0a" 
+          roughness={0.1} 
+          metalness={0.9} 
+          map={tex} 
+          emissiveMap={tex}
+          emissive={hovered ? data.color : "#ffffff"}
+          emissiveIntensity={hovered ? 2.5 : 0.8}
+        />
       </mesh>
       
-      {/* Glowing Outer Wireframe */}
-      <mesh>
-        <boxGeometry args={[data.scale[0] + 0.1, data.scale[1] + 0.1, data.scale[2] + 0.1]} />
-        <meshBasicMaterial color={data.color} wireframe transparent opacity={hovered ? 0.8 : 0.2} />
+      {/* Illuminated Base / Entrance */}
+      <mesh position={[0, -data.scale[1]/2 + 0.4, data.scale[2]/2 + 0.01]}>
+        <planeGeometry args={[data.scale[0] * 0.8, 0.8]} />
+        <meshBasicMaterial color={data.color} toneMapped={false} transparent opacity={0.8} />
       </mesh>
 
-      {/* Floating Orbital Rings */}
-      <mesh ref={ringRef} position={[0, 0, 0]}>
-        <torusGeometry args={[Math.max(data.scale[0], data.scale[2])*0.8, 0.05, 16, 64]} />
-        <meshBasicMaterial color={data.color} transparent opacity={hovered ? 1 : 0.4} />
+      {/* Architectural Roof Crown */}
+      <mesh position={[0, data.scale[1]/2 + 0.25, 0]}>
+        <boxGeometry args={[data.scale[0]*0.7, 0.5, data.scale[2]*0.7]} />
+        <meshStandardMaterial color="#050505" roughness={0.2} metalness={0.8} />
       </mesh>
-      
+      <mesh position={[0, data.scale[1]/2 + 0.25, 0]}>
+        <boxGeometry args={[data.scale[0]*0.72, 0.1, data.scale[2]*0.72]} />
+        <meshBasicMaterial color={data.color} toneMapped={false} />
+      </mesh>
+
       <Html
-        position={[0, data.scale[1] / 2 + 1.0, 0]}
+        position={[0, data.scale[1] / 2 + 1.8, 0]}
         center
         transform
-        distanceFactor={15}
+        distanceFactor={18}
       >
         <div 
-          className="font-light tracking-[0.4em] uppercase text-white px-6 py-2 rounded-full backdrop-blur-md border"
+          className="font-bold tracking-widest uppercase text-white px-5 py-2 rounded border backdrop-blur-md"
           style={{ 
-            borderColor: hovered ? data.color : 'rgba(255,255,255,0.1)',
-            backgroundColor: hovered ? `${data.color}22` : 'rgba(0,0,0,0.5)',
-            textShadow: hovered ? `0 0 10px ${data.color}` : 'none',
+            borderColor: hovered ? data.color : 'rgba(255,255,255,0.2)',
+            backgroundColor: hovered ? `${data.color}33` : 'rgba(0,0,0,0.6)',
+            boxShadow: hovered ? `0 0 20px ${data.color}` : '0 4px 6px rgba(0,0,0,0.3)',
             transition: 'all 0.3s ease',
-            pointerEvents: 'none'
+            pointerEvents: 'none',
+            fontSize: '11px'
           }}
         >
           {data.label}
         </div>
       </Html>
       
-      {hovered && <pointLight position={[0, 0, 0]} color={data.color} intensity={5} distance={15} />}
+      {hovered && <pointLight position={[0, 0, 0]} color={data.color} intensity={8} distance={20} />}
     </group>
   );
 }
@@ -90,9 +129,16 @@ function InteractiveBuilding({ data, onClick, isZooming }) {
 // Constants for City Grid
 const ROAD_WIDTH = 3.0;
 const BLOCK_SIZE = 5.0;
-const SPACING = ROAD_WIDTH + BLOCK_SIZE; // 8.0
+const SPACING = ROAD_WIDTH + BLOCK_SIZE;
 
 function BuildingMesh({ b }) {
+  const tex = useMemo(() => {
+    const t = windowTexture.clone();
+    t.needsUpdate = true;
+    t.repeat.set(b.scale[0], b.scale[1] / 1.5);
+    return t;
+  }, [b.scale]);
+
   return (
     <group position={b.position}>
       <mesh castShadow receiveShadow>
@@ -101,6 +147,10 @@ function BuildingMesh({ b }) {
           color={b.color} 
           roughness={0.2} 
           metalness={0.9} 
+          map={tex}
+          emissiveMap={tex}
+          emissive="#ffffff"
+          emissiveIntensity={0.6}
         />
       </mesh>
       {/* Sleek roof light edge */}
@@ -550,7 +600,7 @@ export default function CityScene({ onEnter }) {
           <color attach="background" args={['#02040a']} />
           <fog attach="fog" args={['#02040a', 20, 100]} />
           
-          <ambientLight intensity={0.1} color="#ffffff" />
+          <ambientLight intensity={0.4} color="#ffffff" />
           <directionalLight position={[20, 40, 20]} intensity={0.3} color="#4338ca" castShadow shadow-mapSize={[2048, 2048]} />
           <pointLight position={[0, 20, 0]} intensity={0.5} color="#818cf8" distance={80} />
           
@@ -596,7 +646,7 @@ export default function CityScene({ onEnter }) {
               >
                 <p className="text-sm md:text-xl font-light text-slate-200 leading-relaxed tracking-wide drop-shadow-xl border-l-2 border-white/20 pl-6 py-2 bg-black/20 backdrop-blur-sm rounded-r-lg">
                   Explore the intersection of logic and imagination.<br/>
-                  Click on the glowing rings to discover.
+                  Click on the illuminated headquarters to discover.
                 </p>
                 
                 <button 
