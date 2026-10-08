@@ -16,63 +16,95 @@ const interactiveBuildings = [
 
 const globalTrafficState = { zGreen: true, timer: 0 };
 
-const createAnimatableWindowTex = () => {
+const createWindowGroup = () => {
   const c = document.createElement('canvas');
-  c.width = 512; c.height = 512;
+  c.width = 128; c.height = 128;
   const ctx = c.getContext('2d');
   
-  ctx.fillStyle = '#020202';
-  ctx.fillRect(0, 0, 512, 512);
-  
-  for(let x = 16; x < 512; x += 128) {
-    for(let y = 16; y < 512; y += 128) {
-      if(Math.random() > 0.7) {
-        ctx.fillStyle = Math.random() > 0.5 ? '#fef08a' : '#fde047'; 
-        ctx.shadowBlur = 30;
-        ctx.shadowColor = ctx.fillStyle;
-        ctx.fillRect(x, y, 64, 80);
-      } else {
-        ctx.fillStyle = '#0a0a0a';
-        ctx.shadowBlur = 0;
-        ctx.fillRect(x, y, 64, 80);
-      }
+  const windows = [];
+  for (let x = 0; x < 4; x++) {
+    for (let y = 0; y < 4; y++) {
+      windows.push({
+        x: x * 32 + 4, y: y * 32 + 4,
+        val: Math.random(),
+        target: Math.random() > 0.7 ? 1 : 0,
+        speed: Math.random() * 0.05 + 0.01,
+        color: Math.random() > 0.5 ? '254, 240, 138' : '253, 224, 71'
+      });
     }
   }
+
   const t = new THREE.CanvasTexture(c);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.magFilter = THREE.LinearFilter;
   t.minFilter = THREE.LinearMipMapLinearFilter;
-  return { texture: t, ctx };
+
+  const update = () => {
+    ctx.fillStyle = '#020202';
+    ctx.fillRect(0, 0, 128, 128);
+    
+    let changed = false;
+    windows.forEach(w => {
+       if (Math.abs(w.val - w.target) > 0.01) {
+         w.val += (w.target - w.val) * w.speed;
+         changed = true;
+       } else if (Math.random() > 0.98) {
+         w.target = Math.random() > 0.7 ? 1 : 0;
+       }
+
+       if (w.val > 0.05) {
+         ctx.fillStyle = `rgba(${w.color}, ${w.val})`; 
+         ctx.shadowBlur = 15 * w.val;
+         ctx.shadowColor = `rgba(${w.color}, 1)`;
+         ctx.fillRect(w.x, w.y, 24, 28);
+       } else {
+         ctx.fillStyle = '#0a0a0a';
+         ctx.shadowBlur = 0;
+         ctx.fillRect(w.x, w.y, 24, 28);
+       }
+    });
+    if (changed) t.needsUpdate = true;
+  };
+
+  return { texture: t, update };
 };
 
-const windowTextures = Array.from({ length: 4 }, createAnimatableWindowTex);
+const windowTextures = Array.from({ length: 6 }, createWindowGroup);
 
 function AnimatedWindows() {
   useFrame(() => {
-    if (Math.random() > 0.6) {
-       const texObj = windowTextures[Math.floor(Math.random() * windowTextures.length)];
-       const ctx = texObj.ctx;
-       const cellX = Math.floor(Math.random() * 4) * 128 + 16;
-       const cellY = Math.floor(Math.random() * 4) * 128 + 16;
-       
-       ctx.fillStyle = '#020202';
-       ctx.shadowBlur = 0;
-       ctx.fillRect(cellX - 10, cellY - 10, 84, 100);
-
-       if(Math.random() > 0.7) {
-          ctx.fillStyle = Math.random() > 0.5 ? '#fef08a' : '#fde047'; 
-          ctx.shadowBlur = 30;
-          ctx.shadowColor = ctx.fillStyle;
-          ctx.fillRect(cellX, cellY, 64, 80);
-       } else {
-          ctx.fillStyle = '#0a0a0a';
-          ctx.shadowBlur = 0;
-          ctx.fillRect(cellX, cellY, 64, 80);
-       }
-       texObj.texture.needsUpdate = true;
-    }
+    windowTextures.forEach(wt => wt.update());
   });
   return null;
+}
+
+function TimesSquareBillboard() {
+  return (
+    <group position={[0, 6, -8]} rotation={[0, 0, 0]}>
+      {/* Massive Structure */}
+      <mesh position={[0, 0, -0.5]} castShadow>
+         <boxGeometry args={[14, 9, 1]} />
+         <meshStandardMaterial color="#050505" metalness={0.9} roughness={0.1} />
+      </mesh>
+      {/* Glowing Screen Placeholder */}
+      <mesh position={[0, 0, 0.01]}>
+         <planeGeometry args={[13.5, 8.5]} />
+         <meshBasicMaterial color="#000000" />
+      </mesh>
+      
+      <Html position={[0, 0, 0.1]} center transform distanceFactor={12}>
+         <div className="flex flex-col items-center justify-center bg-black/90 p-8 rounded border border-white/20 backdrop-blur-md shadow-[0_0_50px_rgba(255,255,255,0.1)]" style={{ width: '480px', height: '300px' }}>
+            <h2 className="text-white text-3xl font-bold uppercase tracking-[0.2em] text-center animate-pulse drop-shadow-[0_0_15px_rgba(255,255,255,0.8)]">
+               Your Video Here
+            </h2>
+            <p className="text-white/70 mt-6 text-center text-sm font-light tracking-wide leading-relaxed">
+              Ready for a custom HTML {"<video>"} element or a Three.js VideoTexture!
+            </p>
+         </div>
+      </Html>
+      <pointLight color="#ffffff" intensity={5} distance={30} position={[0, 0, 2]} />
+    </group>
+  );
 }
 
 function InteractiveBuilding({ data, onClick, isZooming }) {
@@ -655,6 +687,7 @@ export default function CityScene({ onEnter }) {
           <Pedestrians />
           <TrafficLights />
           <AnimatedWindows />
+          <TimesSquareBillboard />
           <MovingClouds />
           
           {/* Interactive Buildings */}
