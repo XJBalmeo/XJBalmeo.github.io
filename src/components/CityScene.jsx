@@ -3,7 +3,11 @@ import { motion, useReducedMotion, AnimatePresence } from 'framer-motion';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Stars, PerspectiveCamera, useCursor, Html } from '@react-three/drei';
 import * as THREE from 'three';
-import { EffectComposer, Bloom } from '@react-three/postprocessing';
+import { EffectComposer, Bloom, ChromaticAberration, Noise as PPNoise } from '@react-three/postprocessing';
+import { LayerMaterial, Color, Depth, Noise } from 'lamina';
+import { Geometry, Base, Subtraction } from '@react-three/csg';
+import { Physics, RigidBody } from '@react-three/rapier';
+import { useControls } from 'leva';
 
 // 5 Interactive Buildings located at Block Centers (combinations of +/- 4, +/- 12)
 const interactiveBuildings = [
@@ -15,6 +19,21 @@ const interactiveBuildings = [
 ];
 
 const globalTrafficState = { zGreen: true, timer: 0 };
+
+function CyberSky() {
+  return (
+    <mesh scale={100}>
+      <sphereGeometry args={[1, 64, 64]} />
+      <LayerMaterial side={THREE.BackSide}>
+        <Color color="#010206" alpha={1} mode="normal" />
+        <Depth colorA="#1e1b4b" colorB="#010206" alpha={0.7} mode="add" near={0} far={100} origin={[0, -20, 0]} />
+        <Noise colorA="#4338ca" colorB="#000000" alpha={0.1} mode="add" scale={10} />
+      </LayerMaterial>
+    </mesh>
+  );
+}
+
+
 
 const createWindowGroup = () => {
   const c = document.createElement('canvas');
@@ -71,6 +90,26 @@ const createWindowGroup = () => {
 
 const windowTextures = Array.from({ length: 6 }, createWindowGroup);
 
+const createAsphaltTexture = () => {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 512;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#444444'; // Darker base gray
+  ctx.fillRect(0, 0, 512, 512);
+  for (let i = 0; i < 30000; i++) {
+    ctx.fillStyle = Math.random() > 0.5 ? '#333333' : '#666666';
+    ctx.fillRect(Math.random() * 512, Math.random() * 512, 2, 2);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(50, 50);
+  t.needsUpdate = true;
+  return t;
+};
+const asphaltTexture = createAsphaltTexture();
+
+
+
 function AnimatedWindows() {
   useFrame(() => {
     windowTextures.forEach(wt => wt.update());
@@ -78,31 +117,52 @@ function AnimatedWindows() {
   return null;
 }
 
-function TimesSquareBillboard() {
+function Streetlights() {
+  const lights = useMemo(() => {
+    const arr = [];
+    const SPACING = 8.0; // ROAD_WIDTH + BLOCK_SIZE = 3.0 + 5.0 = 8.0
+    for (let i = -4; i < 4; i++) {
+      for (let j = -4; j <= 4; j++) {
+        // X-axis road segments (runs along X, between intersections)
+        const x = (i + 0.5) * SPACING;
+        const z = j * SPACING;
+        arr.push({ pos: [x, 0, z + 1.8], rot: 0 }); // facing -Z
+        arr.push({ pos: [x, 0, z - 1.8], rot: Math.PI }); // facing +Z
+      }
+    }
+    for (let i = -4; i <= 4; i++) {
+      for (let j = -4; j < 4; j++) {
+        // Z-axis road segments (runs along Z, between intersections)
+        const x = i * SPACING;
+        const z = (j + 0.5) * SPACING;
+        arr.push({ pos: [x + 1.8, 0, z], rot: Math.PI/2 }); // facing -X
+        arr.push({ pos: [x - 1.8, 0, z], rot: -Math.PI/2 }); // facing +X
+      }
+    }
+    return arr;
+  }, []);
+
   return (
-    <group position={[0, 6, -8]} rotation={[0, 0, 0]}>
-      {/* Massive Structure */}
-      <mesh position={[0, 0, -0.5]} castShadow>
-         <boxGeometry args={[14, 9, 1]} />
-         <meshStandardMaterial color="#050505" metalness={0.9} roughness={0.1} />
-      </mesh>
-      {/* Glowing Screen Placeholder */}
-      <mesh position={[0, 0, 0.01]}>
-         <planeGeometry args={[13.5, 8.5]} />
-         <meshBasicMaterial color="#000000" />
-      </mesh>
-      
-      <Html position={[0, 0, 0.1]} center transform distanceFactor={12}>
-         <div className="flex flex-col items-center justify-center bg-black/90 p-8 rounded border border-white/20 backdrop-blur-md shadow-[0_0_50px_rgba(255,255,255,0.1)]" style={{ width: '480px', height: '300px' }}>
-            <h2 className="text-white text-3xl font-bold uppercase tracking-[0.2em] text-center animate-pulse drop-shadow-[0_0_15px_rgba(255,255,255,0.8)]">
-               Your Video Here
-            </h2>
-            <p className="text-white/70 mt-6 text-center text-sm font-light tracking-wide leading-relaxed">
-              Ready for a custom HTML {"<video>"} element or a Three.js VideoTexture!
-            </p>
-         </div>
-      </Html>
-      <pointLight color="#ffffff" intensity={5} distance={30} position={[0, 0, 2]} />
+    <group>
+      {lights.map((l, i) => (
+        <group key={i} position={[l.pos[0], 0.06, l.pos[2]]} rotation={[0, l.rot, 0]}>
+          {/* Pole */}
+          <mesh position={[0, 1.5, 0]}>
+            <cylinderGeometry args={[0.03, 0.05, 3]} />
+            <meshStandardMaterial color="#111" metalness={0.8} roughness={0.2} />
+          </mesh>
+          {/* Arm */}
+          <mesh position={[0, 3, -0.3]}>
+            <cylinderGeometry args={[0.02, 0.03, 0.8]} rotation={[Math.PI/2, 0, 0]} />
+            <meshStandardMaterial color="#111" metalness={0.8} roughness={0.2} />
+          </mesh>
+          {/* Bulb */}
+          <mesh position={[0, 2.95, -0.6]}>
+            <sphereGeometry args={[0.08]} />
+            <meshStandardMaterial color="#ffffff" emissive="#fef08a" emissiveIntensity={4} />
+          </mesh>
+        </group>
+      ))}
     </group>
   );
 }
@@ -135,15 +195,94 @@ function InteractiveBuilding({ data, onClick, isZooming }) {
       onPointerOut={() => setHovered(false)}
       onClick={(e) => { e.stopPropagation(); onClick(data); }}
     >
-      {/* Main Building Body */}
+      {/* Main Building Body with CSG Architecture */}
       <mesh castShadow receiveShadow>
-        <boxGeometry args={data.scale} />
-        <meshStandardMaterial attach="material-0" color="#0a0a0a" roughness={0.1} metalness={0.9} map={tex} emissiveMap={tex} emissive={hovered ? data.color : "#ffffff"} emissiveIntensity={hovered ? 3.0 : 1.8} />
-        <meshStandardMaterial attach="material-1" color="#0a0a0a" roughness={0.1} metalness={0.9} map={tex} emissiveMap={tex} emissive={hovered ? data.color : "#ffffff"} emissiveIntensity={hovered ? 3.0 : 1.8} />
-        <meshStandardMaterial attach="material-2" color="#0a0a0a" roughness={0.1} metalness={0.9} />
-        <meshStandardMaterial attach="material-3" color="#0a0a0a" roughness={0.1} metalness={0.9} />
-        <meshStandardMaterial attach="material-4" color="#0a0a0a" roughness={0.1} metalness={0.9} map={tex} emissiveMap={tex} emissive={hovered ? data.color : "#ffffff"} emissiveIntensity={hovered ? 3.0 : 1.8} />
-        <meshStandardMaterial attach="material-5" color="#0a0a0a" roughness={0.1} metalness={0.9} map={tex} emissiveMap={tex} emissive={hovered ? data.color : "#ffffff"} emissiveIntensity={hovered ? 3.0 : 1.8} />
+        <Geometry>
+          <Base>
+            <boxGeometry args={data.scale} />
+          </Base>
+          {data.type === 'tower' && (
+            <>
+              {/* Slanted roof */}
+              <Subtraction position={[0, data.scale[1]/2, 0]} rotation={[0, 0, Math.PI/6]}>
+                <boxGeometry args={[data.scale[0]*2, data.scale[0], data.scale[2]*2]} />
+              </Subtraction>
+              {/* Mid-section cutout tunnel */}
+              <Subtraction position={[0, data.scale[1]*0.1, 0]}>
+                <boxGeometry args={[data.scale[0]*0.5, data.scale[1]*0.3, data.scale[2]*1.1]} />
+              </Subtraction>
+            </>
+          )}
+          {data.type === 'block' && (
+            <>
+              {/* Massive Archway */}
+              <Subtraction position={[0, -data.scale[1]/2, 0]}>
+                <cylinderGeometry args={[data.scale[0]*0.35, data.scale[0]*0.35, data.scale[2]*1.1, 32]} rotation={[Math.PI/2, 0, 0]} />
+              </Subtraction>
+              {/* Corner stepping left */}
+              <Subtraction position={[-data.scale[0]/2, data.scale[1]/2, 0]}>
+                <boxGeometry args={[data.scale[0]*0.6, data.scale[1]*0.4, data.scale[2]*1.1]} />
+              </Subtraction>
+              {/* Corner stepping right */}
+              <Subtraction position={[data.scale[0]/2, data.scale[1]/2, 0]}>
+                <boxGeometry args={[data.scale[0]*0.6, data.scale[1]*0.4, data.scale[2]*1.1]} />
+              </Subtraction>
+            </>
+          )}
+          {data.type === 'antenna' && (
+            <>
+              {/* Diamond cut out of the sides to make it a cross */}
+              <Subtraction position={[data.scale[0]/2, 0, data.scale[2]/2]} rotation={[0, Math.PI/4, 0]}>
+                <boxGeometry args={[data.scale[0]*0.9, data.scale[1]*1.1, data.scale[2]*0.9]} />
+              </Subtraction>
+              <Subtraction position={[-data.scale[0]/2, 0, -data.scale[2]/2]} rotation={[0, Math.PI/4, 0]}>
+                <boxGeometry args={[data.scale[0]*0.9, data.scale[1]*1.1, data.scale[2]*0.9]} />
+              </Subtraction>
+              {/* Spherical hole near top */}
+              <Subtraction position={[0, data.scale[1]*0.25, 0]}>
+                <sphereGeometry args={[data.scale[0]*0.4, 32, 32]} />
+              </Subtraction>
+            </>
+          )}
+          {data.type === 'tiered' && (
+            <>
+              {/* Left tier cut */}
+              <Subtraction position={[-data.scale[0]/2, data.scale[1]*0.7, 0]}>
+                <boxGeometry args={[data.scale[0]*0.4, data.scale[1]*0.6, data.scale[2]*1.1]} />
+              </Subtraction>
+              {/* Right tier cut */}
+              <Subtraction position={[data.scale[0]/2, data.scale[1]*0.7, 0]}>
+                <boxGeometry args={[data.scale[0]*0.4, data.scale[1]*0.6, data.scale[2]*1.1]} />
+              </Subtraction>
+              {/* Front tier cut */}
+              <Subtraction position={[0, data.scale[1]*0.4, data.scale[2]/2]}>
+                <boxGeometry args={[data.scale[0]*1.1, data.scale[1]*0.8, data.scale[2]*0.4]} />
+              </Subtraction>
+            </>
+          )}
+          {data.type === 'pavilion' && (
+            <>
+              {/* Cut corners to make a cross / plus shape */}
+              <Subtraction position={[data.scale[0]/2, 0, data.scale[2]/2]}>
+                <boxGeometry args={[data.scale[0]*0.55, data.scale[1]*1.1, data.scale[2]*0.55]} />
+              </Subtraction>
+              <Subtraction position={[-data.scale[0]/2, 0, data.scale[2]/2]}>
+                <boxGeometry args={[data.scale[0]*0.55, data.scale[1]*1.1, data.scale[2]*0.55]} />
+              </Subtraction>
+              <Subtraction position={[data.scale[0]/2, 0, -data.scale[2]/2]}>
+                <boxGeometry args={[data.scale[0]*0.55, data.scale[1]*1.1, data.scale[2]*0.55]} />
+              </Subtraction>
+              <Subtraction position={[-data.scale[0]/2, 0, -data.scale[2]/2]}>
+                <boxGeometry args={[data.scale[0]*0.55, data.scale[1]*1.1, data.scale[2]*0.55]} />
+              </Subtraction>
+              {/* Center hollow cutout */}
+              <Subtraction position={[0, -data.scale[1]/2, 0]}>
+                <boxGeometry args={[data.scale[0]*0.3, data.scale[1]*1.2, data.scale[2]*0.3]} />
+              </Subtraction>
+            </>
+          )}
+        </Geometry>
+        <meshStandardMaterial color="#0a0a0a" roughness={0.1} metalness={0.9} map={tex} emissiveMap={tex} emissive={hovered ? data.color : "#ffffff"} emissiveIntensity={hovered ? 3.0 : 1.8} />
       </mesh>
       
       {/* Illuminated Base / Entrance */}
@@ -163,20 +302,22 @@ function InteractiveBuilding({ data, onClick, isZooming }) {
       </mesh>
 
       <Html
-        position={[0, data.scale[1] / 2 + 1.8, 0]}
+        position={[0, data.scale[1] / 2 + 1.0, 0]}
         center
         transform
-        distanceFactor={18}
+        distanceFactor={15}
       >
         <div 
-          className="font-bold tracking-widest uppercase text-white px-5 py-2 rounded border backdrop-blur-md"
+          className="font-black tracking-[0.3em] uppercase"
           style={{ 
-            borderColor: hovered ? data.color : 'rgba(255,255,255,0.2)',
-            backgroundColor: hovered ? `${data.color}33` : 'rgba(0,0,0,0.6)',
-            boxShadow: hovered ? `0 0 20px ${data.color}` : '0 4px 6px rgba(0,0,0,0.3)',
+            color: hovered ? '#ffffff' : data.color,
+            textShadow: hovered 
+              ? `0 0 5px #ffffff, 0 0 10px ${data.color}, 0 0 20px ${data.color}, 0 0 40px ${data.color}` 
+              : `0 0 5px ${data.color}, 0 0 10px ${data.color}`,
             transition: 'all 0.3s ease',
             pointerEvents: 'none',
-            fontSize: '11px'
+            fontSize: '12px',
+            whiteSpace: 'nowrap'
           }}
         >
           {data.label}
@@ -240,11 +381,12 @@ function BuildingMesh({ b }) {
 }
 
 function AmbientCityGrid() {
-  const { blocks, roadSegments, intersections, parks } = useMemo(() => {
+  const { blocks, roadSegments, intersections, parks, sidewalks } = useMemo(() => {
     const bldgs = [];
     const rSegs = [];
     const inters = [];
     const parkLocs = [];
+    const swLocs = [];
     
     const colors = ['#080808', '#111111', '#1a1a1a', '#050505'];
     
@@ -254,6 +396,7 @@ function AmbientCityGrid() {
           inters.push([i * SPACING, j * SPACING]);
           if (i < 4) rSegs.push({ pos: [(i + 0.5) * SPACING, 0, j * SPACING], scale: [BLOCK_SIZE, ROAD_WIDTH] });
           if (j < 4) rSegs.push({ pos: [i * SPACING, 0, (j + 0.5) * SPACING], scale: [ROAD_WIDTH, BLOCK_SIZE] });
+          if (i < 4 && j < 4) swLocs.push([(i + 0.5) * SPACING, 0.03, (j + 0.5) * SPACING]);
        }
     }
 
@@ -267,10 +410,7 @@ function AmbientCityGrid() {
         );
         if (isInteractiveBlock) continue;
 
-        if (Math.random() > 0.85) {
-          parkLocs.push([centerX, 0, centerZ]);
-          continue;
-        }
+
 
         for(let dx of [-1.2, 1.2]) {
             for(let dz of [-1.2, 1.2]) {
@@ -278,7 +418,7 @@ function AmbientCityGrid() {
                 
                 const bx = centerX + dx;
                 const bz = centerZ + dz;
-                const height = Math.random() * 8 + 3.0;
+                const height = Math.random() * 3 + 2.0; // Shorter buildings
                 const scale = [Math.random() * 1.5 + 1.2, height, Math.random() * 1.5 + 1.2];
                 const hasNeon = Math.random() > 0.7;
                 const neonColor = ['#38bdf8', '#a78bfa', '#f472b6', '#34d399'][Math.floor(Math.random() * 4)];
@@ -294,31 +434,92 @@ function AmbientCityGrid() {
         }
       }
     }
-    return { blocks: bldgs, roadSegments: rSegs, intersections: inters, parks: parkLocs };
+    return { blocks: bldgs, roadSegments: rSegs, intersections: inters, parks: parkLocs, sidewalks: swLocs };
   }, []);
 
   return (
     <group>
       {/* Ground plane */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]} receiveShadow>
-        <planeGeometry args={[200, 200]} />
-        <meshStandardMaterial color="#02040a" roughness={1} />
-      </mesh>
+      <RigidBody type="fixed">
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]} receiveShadow>
+          <planeGeometry args={[200, 200]} />
+          <meshStandardMaterial map={asphaltTexture} color="#888888" roughness={1} />
+        </mesh>
+      </RigidBody>
+      
+      {/* Sidewalks */}
+      {sidewalks.map((pos, i) => (
+        <mesh key={`sw-${i}`} position={pos} receiveShadow>
+          <boxGeometry args={[BLOCK_SIZE, 0.06, BLOCK_SIZE]} />
+          <meshStandardMaterial map={asphaltTexture} color="#777777" roughness={0.9} />
+        </mesh>
+      ))}
 
       {/* Roads */}
       <group position={[0, 0.01, 0]}>
          {intersections.map((pos, i) => (
-           <mesh key={`int-${i}`} position={[pos[0], 0, pos[1]]} rotation={[-Math.PI/2, 0, 0]} receiveShadow>
-              <planeGeometry args={[ROAD_WIDTH, ROAD_WIDTH]} />
-              <meshStandardMaterial color="#111111" roughness={0.6} />
-           </mesh>
+           <group key={`int-${i}`} position={[pos[0], 0, pos[1]]}>
+             <mesh rotation={[-Math.PI/2, 0, 0]} receiveShadow>
+                <planeGeometry args={[ROAD_WIDTH, ROAD_WIDTH]} />
+                <meshStandardMaterial color="#2a2a2a" roughness={0.6} />
+             </mesh>
+             {/* Intersection Square Border */}
+             <group position={[0, 0.01, 0]}>
+               <mesh rotation={[-Math.PI/2, 0, 0]} position={[0, 0, 1.3]}>
+                  <planeGeometry args={[2.7, 0.1]} />
+                  <meshBasicMaterial color="#fde047" transparent opacity={0.4} />
+               </mesh>
+               <mesh rotation={[-Math.PI/2, 0, 0]} position={[0, 0, -1.3]}>
+                  <planeGeometry args={[2.7, 0.1]} />
+                  <meshBasicMaterial color="#fde047" transparent opacity={0.4} />
+               </mesh>
+               <mesh rotation={[-Math.PI/2, 0, 0]} position={[1.3, 0, 0]}>
+                  <planeGeometry args={[0.1, 2.7]} />
+                  <meshBasicMaterial color="#fde047" transparent opacity={0.4} />
+               </mesh>
+               <mesh rotation={[-Math.PI/2, 0, 0]} position={[-1.3, 0, 0]}>
+                  <planeGeometry args={[0.1, 2.7]} />
+                  <meshBasicMaterial color="#fde047" transparent opacity={0.4} />
+               </mesh>
+             </group>
+             {/* Yellow X */}
+             <group position={[0, 0.015, 0]}>
+               <mesh rotation={[-Math.PI/2, 0, Math.PI/4]}>
+                  <planeGeometry args={[3.6, 0.1]} />
+                  <meshBasicMaterial color="#fde047" transparent opacity={0.4} />
+               </mesh>
+               <mesh rotation={[-Math.PI/2, 0, -Math.PI/4]}>
+                  <planeGeometry args={[3.6, 0.1]} />
+                  <meshBasicMaterial color="#fde047" transparent opacity={0.4} />
+               </mesh>
+             </group>
+           </group>
          ))}
-         {roadSegments.map((r, i) => (
-           <mesh key={`seg-${i}`} position={[r.pos[0], 0, r.pos[2]]} rotation={[-Math.PI/2, 0, 0]} receiveShadow>
-              <planeGeometry args={r.scale} />
-              <meshStandardMaterial color="#111111" roughness={0.6} />
-           </mesh>
-         ))}
+         {roadSegments.map((r, i) => {
+           const isX = r.scale[0] > r.scale[1];
+           return (
+             <group key={`seg-${i}`} position={[r.pos[0], 0, r.pos[2]]}>
+               <mesh rotation={[-Math.PI/2, 0, 0]} receiveShadow>
+                  <planeGeometry args={r.scale} />
+                  <meshStandardMaterial color="#2a2a2a" roughness={0.6} />
+               </mesh>
+               {/* Center lane divider */}
+               <mesh rotation={[-Math.PI/2, 0, 0]} position={[0, 0.01, 0]}>
+                  <planeGeometry args={[isX ? r.scale[0] : 0.1, isX ? 0.1 : r.scale[1]]} />
+                  <meshBasicMaterial color="#fde047" transparent opacity={0.5} />
+               </mesh>
+               {/* Edge glow lines */}
+               <mesh rotation={[-Math.PI/2, 0, 0]} position={[isX ? 0 : (ROAD_WIDTH/2 - 0.15), 0.01, isX ? (ROAD_WIDTH/2 - 0.15) : 0]}>
+                  <planeGeometry args={[isX ? r.scale[0] : 0.05, isX ? 0.05 : r.scale[1]]} />
+                  <meshBasicMaterial color="#38bdf8" transparent opacity={0.6} />
+               </mesh>
+               <mesh rotation={[-Math.PI/2, 0, 0]} position={[isX ? 0 : -(ROAD_WIDTH/2 - 0.15), 0.01, isX ? -(ROAD_WIDTH/2 - 0.15) : 0]}>
+                  <planeGeometry args={[isX ? r.scale[0] : 0.05, isX ? 0.05 : r.scale[1]]} />
+                  <meshBasicMaterial color="#38bdf8" transparent opacity={0.6} />
+               </mesh>
+             </group>
+           );
+         })}
       </group>
 
       {blocks.map((b, i) => <BuildingMesh key={`bldg-${i}`} b={b} />)}
@@ -640,9 +841,109 @@ function CameraRig({ targetBuilding, onZoomComplete }) {
   return null;
 }
 
+function Hovercars() {
+  const cars = useMemo(() => {
+    const arr = [];
+    for (let i = 0; i < 20; i++) {
+      arr.push({
+        pos: [Math.random() * 120 - 60, Math.random() * 10 + 12, Math.random() * 120 - 60],
+        speed: (Math.random() * 15 + 8) * (Math.random() > 0.5 ? 1 : -1),
+        isX: Math.random() > 0.5,
+        color: Math.random() > 0.5 ? '#38bdf8' : '#f472b6'
+      });
+    }
+    return arr;
+  }, []);
+  
+  const carsRef = useRef([]);
+
+  useFrame((state, delta) => {
+    carsRef.current.forEach((car, i) => {
+      if (car) {
+        if (cars[i].isX) {
+           car.position.x += cars[i].speed * delta;
+           if (car.position.x > 60) car.position.x = -60;
+           if (car.position.x < -60) car.position.x = 60;
+        } else {
+           car.position.z += cars[i].speed * delta;
+           if (car.position.z > 60) car.position.z = -60;
+           if (car.position.z < -60) car.position.z = 60;
+        }
+      }
+    });
+  });
+
+  return (
+    <group>
+      {cars.map((c, i) => (
+        <group key={i} ref={el => carsRef.current[i] = el} position={c.pos}>
+          <mesh>
+            <sphereGeometry args={[0.2]} />
+            <meshBasicMaterial color={c.color} />
+          </mesh>
+          <mesh position={[c.isX ? (c.speed > 0 ? -0.4 : 0.4) : 0, 0, !c.isX ? (c.speed > 0 ? -0.4 : 0.4) : 0]}>
+             <sphereGeometry args={[0.1]} />
+             <meshBasicMaterial color={c.color} transparent opacity={0.5} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
+function BackgroundCity() {
+  const bgBldgs = useMemo(() => {
+    const bldgs = [];
+    const count = 350;
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const radius = Math.random() * 90 + 50; // Between 50 and 140 distance
+      const x = Math.cos(angle) * radius;
+      const z = Math.sin(angle) * radius;
+      
+      const w = Math.random() * 5 + 3;
+      const d = Math.random() * 5 + 3;
+      const h = Math.random() * 30 + 10;
+      bldgs.push({ pos: [x, h/2 - 0.1, z], scale: [w, h, d] });
+    }
+    return bldgs;
+  }, []);
+
+  return (
+    <group>
+      {bgBldgs.map((b, i) => (
+        <mesh key={i} position={b.pos} castShadow={false} receiveShadow={false}>
+          <Geometry>
+            <Base>
+               <boxGeometry args={b.scale} />
+            </Base>
+            <Subtraction position={[b.scale[0]/2, b.scale[1]/2, b.scale[2]/2]}>
+               <boxGeometry args={[b.scale[0]*0.8, b.scale[1]*0.5, b.scale[2]*0.8]} />
+            </Subtraction>
+          </Geometry>
+          <meshBasicMaterial color="#020305" map={windowTextures[i % windowTextures.length].texture} />
+          {/* Add a few random lit windows on background buildings */}
+          {Math.random() > 0.5 && (
+             <mesh position={[0, b.scale[1]/2 - 2, b.scale[2]/2 + 0.1]}>
+               <planeGeometry args={[0.5, 0.5]} />
+               <meshBasicMaterial color="#fde047" transparent opacity={0.5} />
+             </mesh>
+          )}
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 export default function CityScene({ onEnter }) {
   const shouldReduceMotion = useReducedMotion();
   const [zoomingTo, setZoomingTo] = useState(null);
+
+  const { ambientIntensity, fogDensity, glitchIntensity } = useControls({
+    ambientIntensity: { value: 0.25, min: 0, max: 2, step: 0.05 },
+    fogDensity: { value: 15, min: 1, max: 50, step: 1 },
+    glitchIntensity: { value: 0.5, min: 0, max: 2, step: 0.1 },
+  });
 
   const handleBuildingClick = (buildingData) => {
     setZoomingTo(buildingData);
@@ -669,26 +970,31 @@ export default function CityScene({ onEnter }) {
       <div className="absolute inset-0 z-0">
         <Canvas shadows>
           <PerspectiveCamera makeDefault position={[25, 25, 25]} fov={30} />
-          <color attach="background" args={['#02040a']} />
-          <fog attach="fog" args={['#02040a', 20, 100]} />
+          <CyberSky />
+          <fog attach="fog" args={['#010206', fogDensity, 80]} />
           
-          <ambientLight intensity={0.4} color="#ffffff" />
-          <directionalLight position={[20, 40, 20]} intensity={0.3} color="#4338ca" castShadow shadow-mapSize={[2048, 2048]} />
-          <pointLight position={[0, 20, 0]} intensity={0.5} color="#818cf8" distance={80} />
+          <ambientLight intensity={ambientIntensity} color="#ffffff" />
+          <directionalLight position={[20, 40, 20]} intensity={0.2} color="#4338ca" castShadow shadow-mapSize={[2048, 2048]} />
+          <pointLight position={[0, 20, 0]} intensity={0.3} color="#818cf8" distance={80} />
           
           <EffectComposer>
             <Bloom luminanceThreshold={0.8} mipmapBlur intensity={1.2} radius={0.6} />
+            <PPNoise opacity={0.03} />
+            <ChromaticAberration offset={[0.002 * glitchIntensity, 0.002 * glitchIntensity]} />
           </EffectComposer>
           
           <Stars radius={60} depth={50} count={3000} factor={4} saturation={1} fade speed={1} />
           
-          <AmbientCityGrid />
+          <Physics>
+            <AmbientCityGrid />
           <Traffic />
           <Pedestrians />
           <TrafficLights />
           <AnimatedWindows />
-          <TimesSquareBillboard />
+          <Streetlights />
           <MovingClouds />
+          <BackgroundCity />
+          <Hovercars />
           
           {/* Interactive Buildings */}
           <group>
@@ -696,6 +1002,7 @@ export default function CityScene({ onEnter }) {
               <InteractiveBuilding key={b.id} data={b} onClick={handleBuildingClick} isZooming={!!zoomingTo} />
             ))}
           </group>
+          </Physics>
 
           <CameraRig targetBuilding={zoomingTo} onZoomComplete={handleZoomComplete} />
         </Canvas>
