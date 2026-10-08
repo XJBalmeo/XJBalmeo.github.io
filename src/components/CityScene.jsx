@@ -22,17 +22,20 @@ const createWindowTex = () => {
   const ctx = c.getContext('2d');
   ctx.fillStyle = '#020202';
   ctx.fillRect(0, 0, 256, 256);
-  for(let x = 8; x < 256; x += 32) {
-    for(let y = 8; y < 256; y += 32) {
-      if(Math.random() > 0.3) {
-        ctx.fillStyle = Math.random() > 0.8 ? '#fef08a' : '#38bdf8';
-        ctx.shadowBlur = 15;
+  
+  // Larger 64x64 grid for bigger windows
+  for(let x = 8; x < 256; x += 64) {
+    for(let y = 8; y < 256; y += 64) {
+      if(Math.random() > 0.4) {
+        // Exclusively glowing yellow hues
+        ctx.fillStyle = Math.random() > 0.5 ? '#fef08a' : '#fde047'; 
+        ctx.shadowBlur = 25; // Stronger glow
         ctx.shadowColor = ctx.fillStyle;
-        ctx.fillRect(x, y, 16, 20);
+        ctx.fillRect(x, y, 48, 52); // Much bigger windows
       } else {
         ctx.fillStyle = '#0a0a0a';
         ctx.shadowBlur = 0;
-        ctx.fillRect(x, y, 16, 20);
+        ctx.fillRect(x, y, 48, 52);
       }
     }
   }
@@ -80,7 +83,7 @@ function InteractiveBuilding({ data, onClick, isZooming }) {
           map={tex} 
           emissiveMap={tex}
           emissive={hovered ? data.color : "#ffffff"}
-          emissiveIntensity={hovered ? 2.5 : 0.8}
+          emissiveIntensity={hovered ? 3.0 : 1.8}
         />
       </mesh>
       
@@ -150,7 +153,7 @@ function BuildingMesh({ b }) {
           map={tex}
           emissiveMap={tex}
           emissive="#ffffff"
-          emissiveIntensity={0.6}
+          emissiveIntensity={1.8}
         />
       </mesh>
       {/* Sleek roof light edge */}
