@@ -16,26 +16,25 @@ const interactiveBuildings = [
 
 const globalTrafficState = { zGreen: true, timer: 0 };
 
-const createWindowTex = () => {
+const createAnimatableWindowTex = () => {
   const c = document.createElement('canvas');
-  c.width = 256; c.height = 256;
+  c.width = 512; c.height = 512;
   const ctx = c.getContext('2d');
-  ctx.fillStyle = '#020202';
-  ctx.fillRect(0, 0, 256, 256);
   
-  // Larger 64x64 grid for bigger windows
-  for(let x = 8; x < 256; x += 64) {
-    for(let y = 8; y < 256; y += 64) {
-      if(Math.random() > 0.4) {
-        // Exclusively glowing yellow hues
+  ctx.fillStyle = '#020202';
+  ctx.fillRect(0, 0, 512, 512);
+  
+  for(let x = 16; x < 512; x += 128) {
+    for(let y = 16; y < 512; y += 128) {
+      if(Math.random() > 0.7) {
         ctx.fillStyle = Math.random() > 0.5 ? '#fef08a' : '#fde047'; 
-        ctx.shadowBlur = 25; // Stronger glow
+        ctx.shadowBlur = 30;
         ctx.shadowColor = ctx.fillStyle;
-        ctx.fillRect(x, y, 48, 52); // Much bigger windows
+        ctx.fillRect(x, y, 64, 80);
       } else {
         ctx.fillStyle = '#0a0a0a';
         ctx.shadowBlur = 0;
-        ctx.fillRect(x, y, 48, 52);
+        ctx.fillRect(x, y, 64, 80);
       }
     }
   }
@@ -43,9 +42,38 @@ const createWindowTex = () => {
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.magFilter = THREE.LinearFilter;
   t.minFilter = THREE.LinearMipMapLinearFilter;
-  return t;
+  return { texture: t, ctx };
 };
-const windowTexture = createWindowTex();
+
+const windowTextures = Array.from({ length: 4 }, createAnimatableWindowTex);
+
+function AnimatedWindows() {
+  useFrame(() => {
+    if (Math.random() > 0.6) {
+       const texObj = windowTextures[Math.floor(Math.random() * windowTextures.length)];
+       const ctx = texObj.ctx;
+       const cellX = Math.floor(Math.random() * 4) * 128 + 16;
+       const cellY = Math.floor(Math.random() * 4) * 128 + 16;
+       
+       ctx.fillStyle = '#020202';
+       ctx.shadowBlur = 0;
+       ctx.fillRect(cellX - 10, cellY - 10, 84, 100);
+
+       if(Math.random() > 0.7) {
+          ctx.fillStyle = Math.random() > 0.5 ? '#fef08a' : '#fde047'; 
+          ctx.shadowBlur = 30;
+          ctx.shadowColor = ctx.fillStyle;
+          ctx.fillRect(cellX, cellY, 64, 80);
+       } else {
+          ctx.fillStyle = '#0a0a0a';
+          ctx.shadowBlur = 0;
+          ctx.fillRect(cellX, cellY, 64, 80);
+       }
+       texObj.texture.needsUpdate = true;
+    }
+  });
+  return null;
+}
 
 function InteractiveBuilding({ data, onClick, isZooming }) {
   const groupRef = useRef();
@@ -59,9 +87,11 @@ function InteractiveBuilding({ data, onClick, isZooming }) {
   });
 
   const tex = useMemo(() => {
-    const t = windowTexture.clone();
+    const master = windowTextures[Math.floor(Math.random() * windowTextures.length)].texture;
+    const t = master.clone();
     t.needsUpdate = true;
-    t.repeat.set(data.scale[0], data.scale[1]);
+    t.repeat.set(data.scale[0] / 2, data.scale[1] / 2);
+    t.offset.set(Math.random(), Math.random());
     return t;
   }, [data.scale]);
 
@@ -76,15 +106,12 @@ function InteractiveBuilding({ data, onClick, isZooming }) {
       {/* Main Building Body */}
       <mesh castShadow receiveShadow>
         <boxGeometry args={data.scale} />
-        <meshStandardMaterial 
-          color="#0a0a0a" 
-          roughness={0.1} 
-          metalness={0.9} 
-          map={tex} 
-          emissiveMap={tex}
-          emissive={hovered ? data.color : "#ffffff"}
-          emissiveIntensity={hovered ? 3.0 : 1.8}
-        />
+        <meshStandardMaterial attach="material-0" color="#0a0a0a" roughness={0.1} metalness={0.9} map={tex} emissiveMap={tex} emissive={hovered ? data.color : "#ffffff"} emissiveIntensity={hovered ? 3.0 : 1.8} />
+        <meshStandardMaterial attach="material-1" color="#0a0a0a" roughness={0.1} metalness={0.9} map={tex} emissiveMap={tex} emissive={hovered ? data.color : "#ffffff"} emissiveIntensity={hovered ? 3.0 : 1.8} />
+        <meshStandardMaterial attach="material-2" color="#0a0a0a" roughness={0.1} metalness={0.9} />
+        <meshStandardMaterial attach="material-3" color="#0a0a0a" roughness={0.1} metalness={0.9} />
+        <meshStandardMaterial attach="material-4" color="#0a0a0a" roughness={0.1} metalness={0.9} map={tex} emissiveMap={tex} emissive={hovered ? data.color : "#ffffff"} emissiveIntensity={hovered ? 3.0 : 1.8} />
+        <meshStandardMaterial attach="material-5" color="#0a0a0a" roughness={0.1} metalness={0.9} map={tex} emissiveMap={tex} emissive={hovered ? data.color : "#ffffff"} emissiveIntensity={hovered ? 3.0 : 1.8} />
       </mesh>
       
       {/* Illuminated Base / Entrance */}
@@ -136,9 +163,11 @@ const SPACING = ROAD_WIDTH + BLOCK_SIZE;
 
 function BuildingMesh({ b }) {
   const tex = useMemo(() => {
-    const t = windowTexture.clone();
+    const master = windowTextures[Math.floor(Math.random() * windowTextures.length)].texture;
+    const t = master.clone();
     t.needsUpdate = true;
-    t.repeat.set(b.scale[0], b.scale[1] / 1.5);
+    t.repeat.set(b.scale[0] / 2, b.scale[1] / 2);
+    t.offset.set(Math.random(), Math.random());
     return t;
   }, [b.scale]);
 
@@ -146,15 +175,12 @@ function BuildingMesh({ b }) {
     <group position={b.position}>
       <mesh castShadow receiveShadow>
         <boxGeometry args={b.scale} />
-        <meshStandardMaterial 
-          color={b.color} 
-          roughness={0.2} 
-          metalness={0.9} 
-          map={tex}
-          emissiveMap={tex}
-          emissive="#ffffff"
-          emissiveIntensity={1.8}
-        />
+        <meshStandardMaterial attach="material-0" color={b.color} roughness={0.2} metalness={0.9} map={tex} emissiveMap={tex} emissive="#ffffff" emissiveIntensity={1.8} />
+        <meshStandardMaterial attach="material-1" color={b.color} roughness={0.2} metalness={0.9} map={tex} emissiveMap={tex} emissive="#ffffff" emissiveIntensity={1.8} />
+        <meshStandardMaterial attach="material-2" color="#050505" roughness={0.5} metalness={0.5} />
+        <meshStandardMaterial attach="material-3" color="#050505" roughness={0.5} metalness={0.5} />
+        <meshStandardMaterial attach="material-4" color={b.color} roughness={0.2} metalness={0.9} map={tex} emissiveMap={tex} emissive="#ffffff" emissiveIntensity={1.8} />
+        <meshStandardMaterial attach="material-5" color={b.color} roughness={0.2} metalness={0.9} map={tex} emissiveMap={tex} emissive="#ffffff" emissiveIntensity={1.8} />
       </mesh>
       {/* Sleek roof light edge */}
       <mesh position={[0, b.scale[1]/2 + 0.01, 0]}>
@@ -165,6 +191,16 @@ function BuildingMesh({ b }) {
         <mesh position={[b.scale[0]/2 + 0.01, 0, 0]}>
           <planeGeometry args={[0.05, b.scale[1] * 0.9]} />
           <meshBasicMaterial color={new THREE.Color(b.neonColor).multiplyScalar(2)} toneMapped={false} />
+        </mesh>
+      )}
+      {b.hasBillboard && (
+        <mesh position={[0, b.scale[1]*0.2, b.scale[2]/2 + 0.02]}>
+          <planeGeometry args={[Math.min(2, b.scale[0] * 0.8), 2]} />
+          <meshBasicMaterial color="#111111" />
+          <mesh position={[0, 0, -0.01]}>
+             <planeGeometry args={[Math.min(2, b.scale[0] * 0.8) + 0.1, 2.1]} />
+             <meshBasicMaterial color="#222" />
+          </mesh>
         </mesh>
       )}
     </group>
@@ -219,7 +255,8 @@ function AmbientCityGrid() {
                     position: [bx, height / 2, bz],
                     scale,
                     color: colors[Math.floor(Math.random() * colors.length)],
-                    hasNeon, neonColor
+                    hasNeon, neonColor,
+                    hasBillboard: Math.random() > 0.85
                 });
             }
         }
@@ -617,6 +654,7 @@ export default function CityScene({ onEnter }) {
           <Traffic />
           <Pedestrians />
           <TrafficLights />
+          <AnimatedWindows />
           <MovingClouds />
           
           {/* Interactive Buildings */}
