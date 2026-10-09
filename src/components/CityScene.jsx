@@ -7,7 +7,6 @@ import { EffectComposer, Bloom, ChromaticAberration, Noise as PPNoise } from '@r
 import { LayerMaterial, Color, Depth, Noise } from 'lamina';
 import { Geometry, Base, Subtraction } from '@react-three/csg';
 import { Physics, RigidBody } from '@react-three/rapier';
-import { useControls } from 'leva';
 
 // 5 Interactive Buildings located at Block Centers (combinations of +/- 4, +/- 12)
 const interactiveBuildings = [
@@ -284,23 +283,6 @@ function InteractiveBuilding({ data, onClick, isZooming }) {
         </Geometry>
         <meshStandardMaterial color="#0a0a0a" roughness={0.1} metalness={0.9} map={tex} emissiveMap={tex} emissive={hovered ? data.color : "#ffffff"} emissiveIntensity={hovered ? 3.0 : 1.8} />
       </mesh>
-      
-      {/* Illuminated Base / Entrance */}
-      <mesh position={[0, -data.scale[1]/2 + 0.4, data.scale[2]/2 + 0.01]}>
-        <planeGeometry args={[data.scale[0] * 0.8, 0.8]} />
-        <meshBasicMaterial color={data.color} toneMapped={false} transparent opacity={0.8} />
-      </mesh>
-
-      {/* Architectural Roof Crown */}
-      <mesh position={[0, data.scale[1]/2 + 0.25, 0]}>
-        <boxGeometry args={[data.scale[0]*0.7, 0.5, data.scale[2]*0.7]} />
-        <meshStandardMaterial color="#050505" roughness={0.2} metalness={0.8} />
-      </mesh>
-      <mesh position={[0, data.scale[1]/2 + 0.25, 0]}>
-        <boxGeometry args={[data.scale[0]*0.72, 0.1, data.scale[2]*0.72]} />
-        <meshBasicMaterial color={data.color} toneMapped={false} />
-      </mesh>
-
       <Html
         position={[0, data.scale[1] / 2 + 1.0, 0]}
         center
@@ -939,11 +921,9 @@ export default function CityScene({ onEnter }) {
   const shouldReduceMotion = useReducedMotion();
   const [zoomingTo, setZoomingTo] = useState(null);
 
-  const { ambientIntensity, fogDensity, glitchIntensity } = useControls({
-    ambientIntensity: { value: 0.25, min: 0, max: 2, step: 0.05 },
-    fogDensity: { value: 15, min: 1, max: 50, step: 1 },
-    glitchIntensity: { value: 0.5, min: 0, max: 2, step: 0.1 },
-  });
+  const ambientIntensity = 0.80;
+  const fogDensity = 25;
+  const glitchIntensity = 0.1;
 
   const handleBuildingClick = (buildingData) => {
     setZoomingTo(buildingData);
@@ -1008,46 +988,6 @@ export default function CityScene({ onEnter }) {
         </Canvas>
       </div>
 
-      {/* Hero Overlay */}
-      <AnimatePresence>
-        {!zoomingTo && (
-          <motion.div 
-            className="absolute inset-0 z-10 pointer-events-none flex flex-col justify-end p-8 md:p-16 overflow-hidden"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0, transition: { duration: 0.5, ease: "easeInOut" } }}
-            transition={{ duration: 1.2, delay: 0.2 }}
-          >
-            <div className="flex flex-col items-start w-full pointer-events-auto">
-              <motion.div 
-                className="flex flex-col md:flex-row items-start md:items-center gap-6 md:gap-10 w-full max-w-2xl"
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ duration: 1, delay: 0.8, ease: [0.16, 1, 0.3, 1] }}
-              >
-                <p className="text-sm md:text-xl font-light text-slate-200 leading-relaxed tracking-wide drop-shadow-xl border-l-2 border-white/20 pl-6 py-2 bg-black/20 backdrop-blur-sm rounded-r-lg">
-                  Explore the intersection of logic and imagination.<br/>
-                  Click on the illuminated headquarters to discover.
-                </p>
-                
-                <button 
-                  className="group relative px-8 py-4 bg-white/5 text-white font-semibold text-xs tracking-[0.2em] uppercase overflow-hidden border border-white/10 rounded-full hover:bg-white/10 transition-all duration-500 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.3)] mt-4 md:mt-0"
-                  onClick={() => handleBuildingClick(interactiveBuildings[3])}
-                >
-                  <span className="relative z-10 flex items-center gap-3">
-                    ENTER CITY
-                    <svg className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                    </svg>
-                  </span>
-                  <div className="absolute inset-0 rounded-full ring-1 ring-inset ring-white/20 group-hover:ring-white/40 transition-all duration-500"></div>
-                  <div className="absolute -inset-[100%] bg-gradient-to-r from-transparent via-white/10 to-transparent rotate-45 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-in-out"></div>
-                </button>
-              </motion.div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </motion.div>
   );
 }
