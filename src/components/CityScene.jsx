@@ -1,20 +1,19 @@
 import React, { useRef, useState, useMemo } from 'react';
 import { motion, useReducedMotion, AnimatePresence } from 'framer-motion';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { Stars, PerspectiveCamera, useCursor, Html } from '@react-three/drei';
+import { Stars, PerspectiveCamera, useCursor, Html, Edges } from '@react-three/drei';
 import * as THREE from 'three';
 import { EffectComposer, Bloom, ChromaticAberration, Noise as PPNoise } from '@react-three/postprocessing';
 import { LayerMaterial, Color, Depth, Noise } from 'lamina';
-import { Geometry, Base, Subtraction } from '@react-three/csg';
+import { Geometry, Base, Subtraction, Addition } from '@react-three/csg';
 import { Physics, RigidBody } from '@react-three/rapier';
 
-// 5 Interactive Buildings located at Block Centers (combinations of +/- 4, +/- 12)
 const interactiveBuildings = [
-  { id: 'about', label: 'ABOUT', position: [-4, 3, -4], color: '#38bdf8', scale: [2, 6, 2], type: 'tower' },
-  { id: 'education', label: 'EDUCATION', position: [4, 2.5, -4], color: '#a78bfa', scale: [3, 5, 2.5], type: 'block' },
-  { id: 'skills', label: 'SKILLS', position: [-4, 3.5, 4], color: '#f472b6', scale: [2, 7, 2], type: 'antenna' },
-  { id: 'projects', label: 'PROJECTS', position: [4, 2.8, 4], color: '#34d399', scale: [3.5, 5.6, 3.5], type: 'tiered' },
-  { id: 'contact', label: 'CONTACT', position: [12, 2, -4], color: '#fbbf24', scale: [2.5, 4, 2.5], type: 'pavilion' }
+  { id: 'about', label: 'ABOUT', position: [-4, 3, -4], color: '#0284c7', scale: [2, 6, 2], type: 'tower' },
+  { id: 'education', label: 'EDUCATION', position: [4, 2.5, -4], color: '#2563eb', scale: [3, 5, 2.5], type: 'block' },
+  { id: 'skills', label: 'SKILLS', position: [-4, 3.5, 4], color: '#3b82f6', scale: [2, 7, 2], type: 'antenna' },
+  { id: 'projects', label: 'PROJECTS', position: [4, 2.8, 4], color: '#60a5fa', scale: [3.5, 5.6, 3.5], type: 'tiered' },
+  { id: 'contact', label: 'CONTACT', position: [12, 2, -4], color: '#38bdf8', scale: [2.5, 4, 2.5], type: 'pavilion' }
 ];
 
 const globalTrafficState = { zGreen: true, timer: 0 };
@@ -214,17 +213,21 @@ function InteractiveBuilding({ data, onClick, isZooming }) {
           )}
           {data.type === 'block' && (
             <>
-              {/* Massive Archway */}
-              <Subtraction position={[0, -data.scale[1]/2, 0]}>
-                <cylinderGeometry args={[data.scale[0]*0.35, data.scale[0]*0.35, data.scale[2]*1.1, 32]} rotation={[Math.PI/2, 0, 0]} />
+              {/* Classical Pyramid Roof for University */}
+              <Addition position={[0, data.scale[1]/2 + data.scale[0]*0.3, 0]} rotation={[0, Math.PI/4, 0]}>
+                <coneGeometry args={[data.scale[0]*0.8, data.scale[0]*0.6, 4]} />
+              </Addition>
+              {/* Front Colonnade Cutout */}
+              <Subtraction position={[0, -data.scale[1]*0.15, data.scale[2]*0.3]}>
+                <boxGeometry args={[data.scale[0]*0.7, data.scale[1]*0.7, data.scale[2]*0.5]} />
               </Subtraction>
-              {/* Corner stepping left */}
-              <Subtraction position={[-data.scale[0]/2, data.scale[1]/2, 0]}>
-                <boxGeometry args={[data.scale[0]*0.6, data.scale[1]*0.4, data.scale[2]*1.1]} />
+              {/* Back Colonnade Cutout */}
+              <Subtraction position={[0, -data.scale[1]*0.15, -data.scale[2]*0.3]}>
+                <boxGeometry args={[data.scale[0]*0.7, data.scale[1]*0.7, data.scale[2]*0.5]} />
               </Subtraction>
-              {/* Corner stepping right */}
-              <Subtraction position={[data.scale[0]/2, data.scale[1]/2, 0]}>
-                <boxGeometry args={[data.scale[0]*0.6, data.scale[1]*0.4, data.scale[2]*1.1]} />
+              {/* Side cuts for colonnade effect */}
+              <Subtraction position={[0, 0, 0]}>
+                 <boxGeometry args={[data.scale[0]*1.1, data.scale[1]*0.7, data.scale[2]*0.2]} />
               </Subtraction>
             </>
           )}
@@ -261,50 +264,62 @@ function InteractiveBuilding({ data, onClick, isZooming }) {
           )}
           {data.type === 'pavilion' && (
             <>
-              {/* Cut corners to make a cross / plus shape */}
-              <Subtraction position={[data.scale[0]/2, 0, data.scale[2]/2]}>
-                <boxGeometry args={[data.scale[0]*0.55, data.scale[1]*1.1, data.scale[2]*0.55]} />
+              {/* Hollow windows making a Telephone Booth */}
+              <Subtraction position={[0, -data.scale[1]*0.05, 0]}>
+                <boxGeometry args={[data.scale[0]*0.8, data.scale[1]*0.8, data.scale[2]*1.2]} />
               </Subtraction>
-              <Subtraction position={[-data.scale[0]/2, 0, data.scale[2]/2]}>
-                <boxGeometry args={[data.scale[0]*0.55, data.scale[1]*1.1, data.scale[2]*0.55]} />
+              <Subtraction position={[0, -data.scale[1]*0.05, 0]}>
+                <boxGeometry args={[data.scale[0]*1.2, data.scale[1]*0.8, data.scale[2]*0.8]} />
               </Subtraction>
-              <Subtraction position={[data.scale[0]/2, 0, -data.scale[2]/2]}>
-                <boxGeometry args={[data.scale[0]*0.55, data.scale[1]*1.1, data.scale[2]*0.55]} />
-              </Subtraction>
-              <Subtraction position={[-data.scale[0]/2, 0, -data.scale[2]/2]}>
-                <boxGeometry args={[data.scale[0]*0.55, data.scale[1]*1.1, data.scale[2]*0.55]} />
-              </Subtraction>
-              {/* Center hollow cutout */}
-              <Subtraction position={[0, -data.scale[1]/2, 0]}>
-                <boxGeometry args={[data.scale[0]*0.3, data.scale[1]*1.2, data.scale[2]*0.3]} />
-              </Subtraction>
+              {/* Rounded Phone Booth Roof */}
+              <Addition position={[0, data.scale[1]/2, 0]} rotation={[0, 0, Math.PI/2]}>
+                <cylinderGeometry args={[data.scale[2]*0.5, data.scale[2]*0.5, data.scale[0], 16]} />
+              </Addition>
+              {/* Top Antenna/Sign */}
+              <Addition position={[0, data.scale[1]/2 + data.scale[2]*0.5 + 0.2, 0]}>
+                <boxGeometry args={[data.scale[0]*0.5, 0.4, data.scale[2]*0.2]} />
+              </Addition>
             </>
           )}
         </Geometry>
-        <meshStandardMaterial color="#0a0a0a" roughness={0.1} metalness={0.9} map={tex} emissiveMap={tex} emissive={hovered ? data.color : "#ffffff"} emissiveIntensity={hovered ? 3.0 : 1.8} />
+        <meshPhysicalMaterial 
+          color={data.color}
+          transmission={0.8}
+          opacity={1}
+          metalness={0.5}
+          roughness={0.2}
+          emissive={data.color}
+          emissiveIntensity={hovered ? 2.5 : 0.8}
+        />
+        <Edges color="#FFFFFF" threshold={15} transparent opacity={hovered ? 0.9 : 0.1} />
       </mesh>
+
       <Html
-        position={[0, data.scale[1] / 2 + 1.0, 0]}
+        position={[0, data.scale[1] / 2 + 1.5, 0]}
         center
         transform
         distanceFactor={15}
       >
         <div 
-          className="font-black tracking-[0.3em] uppercase"
+          className="font-extrabold tracking-wider uppercase text-white drop-shadow-md"
           style={{ 
-            color: hovered ? '#ffffff' : data.color,
-            textShadow: hovered 
-              ? `0 0 5px #ffffff, 0 0 10px ${data.color}, 0 0 20px ${data.color}, 0 0 40px ${data.color}` 
-              : `0 0 5px ${data.color}, 0 0 10px ${data.color}`,
-            transition: 'all 0.3s ease',
             pointerEvents: 'none',
-            fontSize: '12px',
+            fontSize: '14px',
             whiteSpace: 'nowrap'
           }}
         >
           {data.label}
         </div>
       </Html>
+      
+      {hovered && (
+        <Html position={[0, data.scale[1] / 2 + 0.5, 0]} center className="pointer-events-none z-50">
+          <div className="bg-[#FACC15] text-black px-3 py-1.5 rounded-lg font-bold text-xs shadow-[0_0_15px_rgba(250,204,21,0.5)] whitespace-nowrap transform -translate-y-2 flex flex-col items-center">
+            <span className="block text-[10px] opacity-80">Enter?</span>
+            Click to enter
+          </div>
+        </Html>
+      )}
       
       {hovered && <pointLight position={[0, 0, 0]} color={data.color} intensity={8} distance={20} />}
     </group>
@@ -988,6 +1003,33 @@ export default function CityScene({ onEnter }) {
         </Canvas>
       </div>
 
+      {/* Floating Glassmorphism Bottom Taskbar */}
+      <AnimatePresence>
+        {!zoomingTo && (
+          <motion.div 
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40"
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            transition={{ delay: 0.5, duration: 0.8 }}
+          >
+            <div className="bg-[#141821]/80 backdrop-blur-xl border border-white/10 p-1.5 rounded-full shadow-2xl flex items-center gap-1">
+              {interactiveBuildings.map((b) => (
+                <button
+                  key={b.id}
+                  onClick={() => handleBuildingClick(b)}
+                  className="group relative px-5 py-2 text-sm font-semibold rounded-full transition-all duration-200"
+                >
+                  <div className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-0 pointer-events-none" style={{ backgroundColor: b.color, boxShadow: `0 0 20px ${b.color}99` }} />
+                  <span className="relative z-10 text-zinc-400 group-hover:text-white group-hover:font-bold transition-all duration-200 uppercase tracking-wide">
+                    {b.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
