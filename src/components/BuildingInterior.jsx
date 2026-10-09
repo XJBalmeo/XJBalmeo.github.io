@@ -185,6 +185,7 @@ export default function BuildingInterior({ buildingId, onExit }) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.6 }}
+    >
       <div className="absolute top-6 left-6 z-[60] flex items-center gap-3">
         {/* Original Geometric XEON Logo */}
         <div className="relative w-8 h-8 flex items-center justify-center">
