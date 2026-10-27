@@ -576,10 +576,10 @@ function InteractiveBuilding({ data, onClick, isZooming }) {
             }}
           >
             <span
-              className="block text-[9px] font-mono tracking-widest uppercase"
+              className="block text-[10px] font-semibold tracking-wider uppercase"
               style={{ color: data.accent }}
             >
-              {data.code}
+              {data.label}
             </span>
             <span className="text-xs font-bold text-[#e0f2fe]">
               Click to enter
@@ -1253,7 +1253,11 @@ function MovingClouds() {
 }
 
 function CameraRig({ targetBuilding, onZoomComplete }) {
+  const introTimer = useRef(0);
+
   useFrame((state, delta) => {
+    introTimer.current += delta;
+
     if (targetBuilding) {
       const midY = targetBuilding.scale[1] * 0.55;
       const targetPos = new THREE.Vector3(
@@ -1268,14 +1272,17 @@ function CameraRig({ targetBuilding, onZoomComplete }) {
         onZoomComplete();
       }
     } else {
-      const targetX = 25 + state.pointer.x * 5;
-      const targetY = 25 + state.pointer.y * 5;
-      const targetZ = 25 + state.pointer.x * 3;
+      // Hold close inside the skyline while LoadingScreen finishes (~1.1s), then smoothly pan out to [25, 25, 25]
+      const isOpening = introTimer.current < 1.1;
+      const targetX = isOpening ? 9 : 25 + state.pointer.x * 5;
+      const targetY = isOpening ? 5.5 : 25 + state.pointer.y * 5;
+      const targetZ = isOpening ? 9 : 25 + state.pointer.x * 3;
+      const dampSpeed = isOpening ? 3.5 : 1.6;
 
-      state.camera.position.x = THREE.MathUtils.damp(state.camera.position.x, targetX, 2, delta);
-      state.camera.position.y = THREE.MathUtils.damp(state.camera.position.y, targetY, 2, delta);
-      state.camera.position.z = THREE.MathUtils.damp(state.camera.position.z, targetZ, 2, delta);
-      state.camera.lookAt(0, 1.5, 0);
+      state.camera.position.x = THREE.MathUtils.damp(state.camera.position.x, targetX, dampSpeed, delta);
+      state.camera.position.y = THREE.MathUtils.damp(state.camera.position.y, targetY, dampSpeed, delta);
+      state.camera.position.z = THREE.MathUtils.damp(state.camera.position.z, targetZ, dampSpeed, delta);
+      state.camera.lookAt(0, 1.8, 0);
     }
   });
   return null;
@@ -1409,7 +1416,7 @@ export default function CityScene({ onEnter }) {
       {/* 3D Canvas */}
       <div className="absolute inset-0 z-0">
         <Canvas shadows>
-          <PerspectiveCamera makeDefault position={[25, 25, 25]} fov={30} />
+          <PerspectiveCamera makeDefault position={[9, 5.5, 9]} fov={30} />
           <CyberSky />
           <fog attach="fog" args={['#010206', fogDensity, 80]} />
 
