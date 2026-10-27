@@ -1,7 +1,7 @@
 import React, { useRef, useState, useMemo } from 'react';
 import { motion, useReducedMotion, AnimatePresence } from 'framer-motion';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { Stars, PerspectiveCamera, useCursor, Html, Edges } from '@react-three/drei';
+import { Stars, PerspectiveCamera, useCursor, Html, Edges, PerformanceMonitor, AdaptiveDpr } from '@react-three/drei';
 import * as THREE from 'three';
 import { EffectComposer, Bloom, ChromaticAberration, Noise as PPNoise } from '@react-three/postprocessing';
 import { LayerMaterial, Color, Depth, Noise } from 'lamina';
@@ -153,8 +153,13 @@ const createAsphaltTexture = () => {
 const asphaltTexture = createAsphaltTexture();
 
 function AnimatedWindows() {
-  useFrame(() => {
-    windowTextures.forEach((wt) => wt.update());
+  const timerRef = useRef(0);
+  useFrame((_, delta) => {
+    timerRef.current += delta;
+    if (timerRef.current > 0.1) {
+      windowTextures.forEach((wt) => wt.update());
+      timerRef.current = 0;
+    }
   });
   return null;
 }
@@ -564,22 +569,22 @@ function InteractiveBuilding({ data, onClick, isZooming }) {
         </div>
       </Html>
 
-      {/* Blue/Cyan Hover Tooltip (Replaces Yellow Hover Box) */}
+      {/* Blue/Cyan Hover Tooltip Centered on the Middle of the Building Body */}
       {hovered && (
-        <Html position={[0, h + 0.65, 0]} center className="pointer-events-none z-50">
+        <Html position={[0, h * 0.48, 0]} center className="pointer-events-none z-50">
           <div
-            className="px-3 py-1.5 rounded-lg backdrop-blur-xl border text-center whitespace-nowrap transform -translate-y-1 flex flex-col items-center"
+            className="px-3.5 py-1.5 rounded-lg backdrop-blur-xl border text-center whitespace-nowrap flex flex-col items-center"
             style={{
               backgroundColor: 'rgba(8, 15, 30, 0.94)',
               borderColor: data.accent,
-              boxShadow: `0 0 18px ${data.accent}66`
+              boxShadow: `0 0 20px ${data.accent}77`
             }}
           >
             <span
-              className="block text-[10px] font-semibold tracking-wider uppercase"
+              className="block text-[9px] font-semibold tracking-widest uppercase opacity-90"
               style={{ color: data.accent }}
             >
-              {data.label}
+              Enter Building
             </span>
             <span className="text-xs font-bold text-[#e0f2fe]">
               Click to enter
@@ -1384,9 +1389,10 @@ function BackgroundCity() {
   );
 }
 
-export default function CityScene({ onEnter }) {
+export default function CityScene({ onEnter, onExit3D }) {
   const shouldReduceMotion = useReducedMotion();
   const [zoomingTo, setZoomingTo] = useState(null);
+  const [lowPerf, setLowPerf] = useState(false);
 
   const ambientIntensity = 0.8;
   const fogDensity = 25;
@@ -1413,22 +1419,47 @@ export default function CityScene({ onEnter }) {
       exit={{ opacity: 0 }}
       transition={{ duration: 0.6 }}
     >
-      {/* 3D Canvas */}
+      {/* Top-Right Button to Return to Static Portfolio View */}
+      {onExit3D && !zoomingTo && (
+        <div className="fixed top-6 right-6 z-40">
+          <button
+            onClick={onExit3D}
+            className="px-4 py-2 rounded-full bg-[#141821]/85 backdrop-blur-xl border border-white/15 text-xs font-semibold tracking-wider uppercase text-slate-200 hover:text-white hover:border-[#38bdf8] transition-all duration-200 shadow-lg cursor-pointer"
+          >
+            ← Standard View
+          </button>
+        </div>
+      )}
+
+      {/* 3D Canvas (Clamped DPR + Adaptive Performance Monitor for Lower-End Devices) */}
       <div className="absolute inset-0 z-0">
-        <Canvas shadows>
+        <Canvas shadows={!lowPerf} dpr={[1, 1.5]}>
+          <PerformanceMonitor
+            onDecline={() => setLowPerf(true)}
+            onIncline={() => setLowPerf(false)}
+          />
+          <AdaptiveDpr pixelated />
           <PerspectiveCamera makeDefault position={[9, 5.5, 9]} fov={30} />
           <CyberSky />
           <fog attach="fog" args={['#010206', fogDensity, 80]} />
 
           <ambientLight intensity={ambientIntensity} color="#ffffff" />
-          <directionalLight position={[20, 40, 20]} intensity={0.2} color="#4338ca" castShadow shadow-mapSize={[2048, 2048]} />
+          <directionalLight
+            position={[20, 40, 20]}
+            intensity={0.2}
+            color="#4338ca"
+            castShadow={!lowPerf}
+            shadow-mapSize={lowPerf ? [1024, 1024] : [2048, 2048]}
+          />
           <pointLight position={[0, 20, 0]} intensity={0.3} color="#818cf8" distance={80} />
 
-          <EffectComposer>
-            <Bloom luminanceThreshold={0.8} mipmapBlur intensity={1.2} radius={0.6} />
-            <PPNoise opacity={0.03} />
-            <ChromaticAberration offset={[0.002 * glitchIntensity, 0.002 * glitchIntensity]} />
-          </EffectComposer>
+          {!lowPerf && (
+            <EffectComposer>
+              <Bloom luminanceThreshold={0.8} mipmapBlur intensity={1.2} radius={0.6} />
+              <PPNoise opacity={0.03} />
+              <ChromaticAberration offset={[0.002 * glitchIntensity, 0.002 * glitchIntensity]} />
+            </EffectComposer>
+          )}
 
           <Stars radius={60} depth={50} count={3000} factor={4} saturation={1} fade speed={1} />
 
