@@ -22,3 +22,18 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# AI Agent config & skills (not part of portfolio source)
+.agents/
+
+# Dev/session utility files
+run-dev.bat
+handoff.md
+PROJECT_CONTEXT.md
+update_city.js
+
+# Unused default Vite assets
+src/assets/react.svg
+src/assets/vite.svg
+src/assets/hero.png
+src/App.css
